@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { Lang, tr } from "./translations";
+import { Lang, tr } from "../translations";
 
 /* ═══════════════════════════════════════════════════
    SVG Icons
