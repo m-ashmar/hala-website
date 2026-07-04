@@ -1,26 +1,459 @@
 @import "tailwindcss";
 
+/* ─── Brand Design Tokens ─── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-primary: #FAF7F5;
+  --bg-secondary: #F6EDEE;
+  --accent: #CFA18D;
+  --accent-light: #E3B8A7;
+  --text-primary: #3A2E2A;
+  --text-secondary: #6B5B55;
+  --highlight: #EAD0D6;
+  --white: #FFFFFF;
+  --footer-bg: #3A2E2A;
+  --footer-text: #FAF7F5;
+
+  --font-heading: 'Playfair Display', serif;
+  --font-body: 'Inter', sans-serif;
+
+  --radius-sm: 12px;
+  --radius-md: 20px;
+  --radius-lg: 28px;
+  --radius-full: 9999px;
+
+  --shadow-soft: 0 4px 20px rgba(58, 46, 42, 0.06);
+  --shadow-card: 0 8px 32px rgba(58, 46, 42, 0.08);
+  --shadow-hover: 0 16px 48px rgba(58, 46, 42, 0.12);
+  --shadow-glow: 0 0 24px rgba(207, 161, 141, 0.3);
+
+  --transition-base: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-body);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ─── Base Styles ─── */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.7;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Typography ─── */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-heading);
+  color: var(--text-primary);
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+
+/* ─── Scroll Animations ─── */
+.fade-in-section {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+.fade-in-section.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.fade-in-left {
+  opacity: 0;
+  transform: translateX(-40px);
+  transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+.fade-in-left.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.fade-in-right {
+  opacity: 0;
+  transform: translateX(40px);
+  transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+}
+
+.fade-in-right.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* ─── Button Styles ─── */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 36px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  color: var(--white);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  border: none;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-soft);
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.btn-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-glow);
+}
+
+.btn-primary:hover::after {
+  opacity: 1;
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 36px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: all var(--transition-base);
+  text-decoration: none;
+}
+
+.btn-secondary:hover {
+  background: var(--accent);
+  color: var(--white);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-glow);
+}
+
+/* ─── Float Animation ─── */
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.float-animation {
+  animation: float 3s ease-in-out infinite;
+}
+
+.float-animation-delay {
+  animation: float 3s ease-in-out 0.5s infinite;
+}
+
+/* ─── Shimmer Animation ─── */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* ─── Pulse Glow ─── */
+@keyframes pulseGlow {
+
+  0%,
+  100% {
+    box-shadow: 0 0 10px rgba(207, 161, 141, 0.2);
+  }
+
+  50% {
+    box-shadow: 0 0 24px rgba(207, 161, 141, 0.4);
+  }
+}
+
+/* ─── Product Card ─── */
+.product-card {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--white);
+  box-shadow: var(--shadow-soft);
+  transition: all var(--transition-base);
+  cursor: pointer;
+}
+
+.product-card:hover {
+  transform: translateY(-8px);
+  box-shadow: var(--shadow-hover);
+}
+
+.product-card img {
+  transition: transform var(--transition-slow);
+}
+
+.product-card:hover img {
+  transform: scale(1.08);
+}
+
+/* ─── Plexi Card Glow ─── */
+.plexi-card:hover {
+  box-shadow: var(--shadow-hover), 0 0 30px rgba(207, 161, 141, 0.2);
+}
+
+/* ─── Brand Card ─── */
+.brand-card {
+  background: var(--white);
+  border-radius: var(--radius-lg);
+  padding: 48px 36px;
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-base);
+  border: 1px solid rgba(207, 161, 141, 0.1);
+  text-align: center;
+}
+
+.brand-card:hover {
+  transform: translateY(-12px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--accent);
+}
+
+/* ─── Instagram Grid ─── */
+.insta-item {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  aspect-ratio: 1;
+}
+
+.insta-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform var(--transition-slow);
+}
+
+.insta-item:hover img {
+  transform: scale(1.1);
+}
+
+.insta-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(58, 46, 42, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.insta-item:hover .insta-overlay {
+  opacity: 1;
+}
+
+/* ─── Testimonial Card ─── */
+.testimonial-card {
+  background: var(--white);
+  border-radius: var(--radius-md);
+  padding: 36px;
+  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(207, 161, 141, 0.08);
+  transition: all var(--transition-base);
+}
+
+.testimonial-card:hover {
+  box-shadow: var(--shadow-card);
+  transform: translateY(-4px);
+}
+
+/* ─── Section Decorators ─── */
+.section-divider {
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  margin: 0 auto 24px;
+  border-radius: var(--radius-full);
+}
+
+/* ─── Form Styles ─── */
+.form-input {
+  width: 100%;
+  padding: 16px 20px;
+  border: 1.5px solid rgba(207, 161, 141, 0.25);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  background: var(--white);
+  transition: all var(--transition-base);
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(207, 161, 141, 0.1);
+}
+
+.form-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+/* ─── WhatsApp Button ─── */
+.whatsapp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 32px;
+  background: #25D366;
+  color: white;
+  border-radius: var(--radius-full);
+  font-weight: 500;
+  font-size: 1rem;
+  text-decoration: none;
+  transition: all var(--transition-base);
+  box-shadow: 0 4px 16px rgba(37, 211, 102, 0.3);
+}
+
+.whatsapp-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(37, 211, 102, 0.4);
+}
+
+/* ─── Navbar ─── */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 16px 0;
+  transition: all var(--transition-base);
+}
+
+.navbar.scrolled {
+  background: rgba(250, 247, 245, 0.95);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-soft);
+  padding: 12px 0;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--accent);
+  border-radius: var(--radius-full);
+}
+
+/* ─── Selection ─── */
+::selection {
+  background: var(--highlight);
+  color: var(--text-primary);
+}
+
+/* ─── RTL / Arabic Support ─── */
+[dir="rtl"] body {
+  font-family: var(--font-arabic), var(--font-body);
+  text-align: right;
+}
+
+[dir="rtl"] h1,
+[dir="rtl"] h2,
+[dir="rtl"] h3,
+[dir="rtl"] h4,
+[dir="rtl"] h5,
+[dir="rtl"] h6 {
+  font-family: var(--font-arabic), var(--font-heading);
+}
+
+[dir="rtl"] .btn-primary,
+[dir="rtl"] .btn-secondary,
+[dir="rtl"] .form-input,
+[dir="rtl"] .whatsapp-btn {
+  font-family: var(--font-arabic), var(--font-body);
+}
+
+[dir="rtl"] .section-divider {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+[dir="rtl"] .form-input {
+  text-align: right;
+}
+
+/* Language toggle button */
+.lang-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(207, 161, 141, 0.12);
+  border: 1.5px solid rgba(207, 161, 141, 0.25);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+  transition: all var(--transition-base);
+  backdrop-filter: blur(8px);
+}
+
+.lang-toggle:hover {
+  background: var(--accent);
+  color: var(--white);
+  border-color: var(--accent);
+  transform: translateY(-1px);
 }
