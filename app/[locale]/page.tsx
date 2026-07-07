@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Lang, tr } from "../translations";
+import CartButton from "@/components/CartButton";
+import { useCartStore } from "@/lib/stores/cart.store";
 
 /* ═══════════════════════════════════════════════════
    SVG Icons
@@ -83,19 +85,19 @@ function useScrollAnimation() {
 const INSTAGRAM_URL = "https://instagram.com/halahelloo";
 
 const hijabProducts = [
-  { nameKey: "prodHijab1" as const, image: "/products/hijab/hijab-a1.avif" },
-  { nameKey: "prodHijab2" as const, image: "/products/hijab/hijab-b1.jpg" },
-  { nameKey: "prodHijab3" as const, image: "/products/hijab/hijab-c1.jpg" },
-  { nameKey: "prodHijab4" as const, image: "/products/hijab/hijab-d.PNG" },
+  { nameKey: "prodHijab1" as const, image: "/products/hijab/hijab-a1.avif", sanityId: "hijab-rose-silk" },
+  { nameKey: "prodHijab2" as const, image: "/products/hijab/hijab-b1.jpg", sanityId: "hijab-moon-drape" },
+  { nameKey: "prodHijab3" as const, image: "/products/hijab/hijab-c1.jpg", sanityId: "hijab-golden-hour" },
+  { nameKey: "prodHijab4" as const, image: "/products/hijab/hijab-d.PNG", sanityId: "hijab-desert-bloom" },
 ];
 
 const plexiProducts = [
-  { nameKey: "prodPlexi1" as const, image: "/products/plexi/a1.webp" },
-  { nameKey: "prodPlexi2" as const, image: "/products/plexi/a2.webp" },
-  { nameKey: "prodPlexi3" as const, image: "/products/plexi/a3.webp" },
-  { nameKey: "prodPlexi4" as const, image: "/products/plexi/a4.webp" },
-  { nameKey: "prodPlexi5" as const, image: "/products/plexi/a5.webp" },
-  { nameKey: "prodPlexi6" as const, image: "/products/plexi/b1.webp" },
+  { nameKey: "prodPlexi1" as const, image: "/products/plexi/a1.webp", sanityId: "plexi-wedding-arch" },
+  { nameKey: "prodPlexi2" as const, image: "/products/plexi/a2.webp", sanityId: "plexi-name-frame" },
+  { nameKey: "prodPlexi3" as const, image: "/products/plexi/a3.webp", sanityId: "plexi-floral-box" },
+  { nameKey: "prodPlexi4" as const, image: "/products/plexi/a4.webp", sanityId: "plexi-gift-set" },
+  { nameKey: "prodPlexi5" as const, image: "/products/plexi/a5.webp", sanityId: "plexi-mirror-sign" },
+  { nameKey: "prodPlexi6" as const, image: "/products/plexi/b1.webp", sanityId: "plexi-shadow-box" },
 ];
 
 const instagramImages = [
@@ -113,10 +115,23 @@ export default function Home() {
   const [navScrolled, setNavScrolled] = useState(false);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
 
+  // Products & Cart
+  const [dbProducts, setDbProducts] = useState<any[]>([]);
+  const addItem = useCartStore((s) => s.addItem);
+
   // Form states
   const [customOrderLoading, setCustomOrderLoading] = useState(false);
   const [contactLoading, setContactLoading] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/products')
+      .then(res => res.json())
+      .then(data => {
+        if (data.products) setDbProducts(data.products);
+      })
+      .catch(console.error);
+  }, []);
 
   const isRtl = lang === "ar";
   const T = (key: Parameters<typeof tr>[0]) => tr(key, lang);
@@ -234,9 +249,13 @@ export default function Home() {
             {navItems.map(([label, id]) => (
               <button key={id} onClick={() => scrollTo(id)} style={{ background: "none", border: "none", cursor: "pointer", fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-body)", fontSize: "0.85rem", fontWeight: 500, color: "var(--text-secondary)", letterSpacing: isRtl ? "0" : "0.04em", textTransform: isRtl ? "none" as const : "uppercase" as const, transition: "color 0.3s" }} onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")} onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}>{label}</button>
             ))}
-            <button onClick={toggleLang} className="lang-toggle"><GlobeIcon />{isRtl ? "EN" : "عربي"}</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <CartButton />
+              <button onClick={toggleLang} className="lang-toggle"><GlobeIcon />{isRtl ? "EN" : "عربي"}</button>
+            </div>
           </div>
           <div className="md:hidden" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <CartButton />
             <button onClick={toggleLang} className="lang-toggle"><GlobeIcon />{isRtl ? "EN" : "عربي"}</button>
             <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-primary)", padding: 8 }}>{mobileMenuOpen ? <CloseIcon /> : <MenuIcon />}</button>
           </div>
@@ -322,17 +341,29 @@ export default function Home() {
           <p className="fade-in-section" style={{ fontSize: "1rem", color: "var(--text-secondary)", maxWidth: 480, margin: "0 auto" }}>{T("hijabSub")}</p>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 28 }} className="product-grid">
-          {hijabProducts.map((p, i) => (
-            <div key={p.nameKey} className="product-card fade-in-section" style={{ transitionDelay: `${i * 100}ms` }}>
-              <div style={{ position: "relative", aspectRatio: "3/4", overflow: "hidden" }}>
-                <Image src={p.image} alt={tr(p.nameKey, lang)} fill style={{ objectFit: "cover" }} sizes="(max-width: 768px) 100vw, 25vw" />
+          {hijabProducts.map((p, i) => {
+            const dbProduct = dbProducts.find((db) => db.sanityId === p.sanityId);
+            return (
+              <div key={p.nameKey} className="product-card fade-in-section" style={{ transitionDelay: `${i * 100}ms` }}>
+                <div style={{ position: "relative", aspectRatio: "3/4", overflow: "hidden" }}>
+                  <Image src={p.image} alt={tr(p.nameKey, lang)} fill style={{ objectFit: "cover" }} sizes="(max-width: 768px) 100vw, 25vw" />
+                </div>
+                <div style={{ padding: "20px 24px", textAlign: "center" }}>
+                  <h3 style={{ fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-heading)", fontSize: "1.1rem", fontWeight: 500, marginBottom: 4 }}>{tr(p.nameKey, lang)}</h3>
+                  <span style={{ fontSize: "0.8rem", color: "var(--accent)", fontWeight: 500, letterSpacing: "0.05em", display: "block", marginBottom: 12 }}>{T("hijabByLine")}</span>
+                  {dbProduct && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, padding: "8px 0 0", borderTop: "1px solid rgba(207,161,141,0.15)" }}>
+                      <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{dbProduct.price} SYP</span>
+                      <button onClick={() => {
+                        addItem({ productSyncId: dbProduct.id, sanityId: dbProduct.sanityId, name: tr(p.nameKey, lang), price: dbProduct.price });
+                        showToast(isRtl ? "تمت الإضافة للسلة" : "Added to cart", "success");
+                      }} className="btn-primary" style={{ padding: "8px 16px", fontSize: "0.8rem" }}>{isRtl ? "أضف للسلة" : "Add"}</button>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div style={{ padding: "20px 24px", textAlign: "center" }}>
-                <h3 style={{ fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-heading)", fontSize: "1.1rem", fontWeight: 500, marginBottom: 4 }}>{tr(p.nameKey, lang)}</h3>
-                <span style={{ fontSize: "0.8rem", color: "var(--accent)", fontWeight: 500, letterSpacing: "0.05em" }}>{T("hijabByLine")}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 
@@ -346,17 +377,29 @@ export default function Home() {
             <p className="fade-in-section" style={{ fontSize: "1rem", color: "var(--text-secondary)", maxWidth: 480, margin: "0 auto" }}>{T("plexiSub")}</p>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 28 }} className="product-grid">
-            {plexiProducts.map((p, i) => (
-              <div key={p.nameKey} className="product-card plexi-card fade-in-section" style={{ transitionDelay: `${i * 100}ms` }}>
-                <div style={{ position: "relative", aspectRatio: "1", overflow: "hidden" }}>
-                  <Image src={p.image} alt={tr(p.nameKey, lang)} fill style={{ objectFit: "cover" }} sizes="(max-width: 768px) 100vw, 33vw" />
+            {plexiProducts.map((p, i) => {
+              const dbProduct = dbProducts.find((db) => db.sanityId === p.sanityId);
+              return (
+                <div key={p.nameKey} className="product-card plexi-card fade-in-section" style={{ transitionDelay: `${i * 100}ms` }}>
+                  <div style={{ position: "relative", aspectRatio: "1", overflow: "hidden" }}>
+                    <Image src={p.image} alt={tr(p.nameKey, lang)} fill style={{ objectFit: "cover" }} sizes="(max-width: 768px) 100vw, 33vw" />
+                  </div>
+                  <div style={{ padding: "20px 24px", textAlign: "center" }}>
+                    <h3 style={{ fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-heading)", fontSize: "1.1rem", fontWeight: 500, marginBottom: 4 }}>{tr(p.nameKey, lang)}</h3>
+                    <span style={{ fontSize: "0.8rem", color: "var(--accent)", fontWeight: 500, letterSpacing: "0.05em", display: "block", marginBottom: 12 }}>{T("plexiByLine")}</span>
+                    {dbProduct && (
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12, padding: "8px 0 0", borderTop: "1px solid rgba(207,161,141,0.15)" }}>
+                        <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{dbProduct.price} SYP</span>
+                        <button onClick={() => {
+                          addItem({ productSyncId: dbProduct.id, sanityId: dbProduct.sanityId, name: tr(p.nameKey, lang), price: dbProduct.price });
+                          showToast(isRtl ? "تمت الإضافة للسلة" : "Added to cart", "success");
+                        }} className="btn-secondary" style={{ padding: "8px 16px", fontSize: "0.8rem" }}>{isRtl ? "أضف للسلة" : "Add"}</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div style={{ padding: "20px 24px", textAlign: "center" }}>
-                  <h3 style={{ fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-heading)", fontSize: "1.1rem", fontWeight: 500, marginBottom: 4 }}>{tr(p.nameKey, lang)}</h3>
-                  <span style={{ fontSize: "0.8rem", color: "var(--accent)", fontWeight: 500, letterSpacing: "0.05em" }}>{T("plexiByLine")}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </section>

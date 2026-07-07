@@ -21,6 +21,13 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
 enum CustomRequestStatus {
   SUBMITTED
   QUOTED
@@ -102,12 +109,27 @@ model ProductSync {
 }
 
 model Order {
-  id              String      @id @default(cuid())
+  id              String        @id @default(cuid())
   userId          String?
-  user            User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  status          OrderStatus @default(PENDING)
+  user            User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
   totalAmount     Float
-  paymentIntentId String?     @unique
+  currency        String        @default("SYP")
+  
+  referenceCode         String? @unique // ShamCash reference (e.g. HL-2026...)
+  stripeSessionId       String? @unique
+  stripePaymentIntentId String? @unique
+
+  // Guest checkout — stored even when userId is null
+  customerName    String?
+  customerEmail   String?
+  customerPhone   String?
+  customerNote    String?     @db.Text
+
+  // Payment lifecycle timestamps
+  expiresAt       DateTime?   // when pending order expires waiting for payment
+  paidAt          DateTime?   // set when payment is confirmed
 
   items OrderItem[]
 
