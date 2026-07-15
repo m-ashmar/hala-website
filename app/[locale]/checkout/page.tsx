@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useCartStore } from '@/lib/stores/cart.store';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import type { CheckoutOrderResponse } from '@/types/cart';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -69,6 +69,8 @@ function CountdownTimer({ expiresAt }: { expiresAt: string }) {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const couponId = searchParams?.get('couponId') ?? undefined;
   const { items, subtotal, totalItems, clearCart } = useCartStore();
 
   const [step, setStep] = useState<1 | 2>(1);
@@ -100,9 +102,16 @@ export default function CheckoutPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: items.map(i => ({ productSyncId: i.productSyncId, quantity: i.quantity })),
+          items: items.map(i => ({
+            productSyncId: i.productSyncId,
+            quantity: i.quantity,
+            customization: i.customization,
+            snapshotTitle: i.snapshotTitle,
+            snapshotImageUrl: i.snapshotImageUrl
+          })),
           customer: { name: form.name, email: form.email, phone: form.phone || undefined, note: form.note || undefined },
           paymentMethod,
+          ...(couponId && { couponId }),
         }),
       });
 

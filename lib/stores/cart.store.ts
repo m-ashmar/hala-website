@@ -22,14 +22,15 @@ export const useCartStore = create<CartStore>()(
 
       addItem: (incoming) => {
         set((state) => {
+          const id = `${incoming.productSyncId}-${JSON.stringify(incoming.customization || {})}`;
           const existing = state.items.find(
-            (i) => i.productSyncId === incoming.productSyncId
+            (i) => i.id === id
           );
           if (existing) {
             // Increment quantity if already in cart
             return {
               items: state.items.map((i) =>
-                i.productSyncId === incoming.productSyncId
+                i.id === id
                   ? { ...i, quantity: i.quantity + (incoming.quantity ?? 1) }
                   : i
               ),
@@ -39,27 +40,27 @@ export const useCartStore = create<CartStore>()(
           return {
             items: [
               ...state.items,
-              { ...incoming, quantity: incoming.quantity ?? 1 },
+              { ...incoming, id, quantity: incoming.quantity ?? 1 },
             ],
           };
         });
       },
 
-      removeItem: (productSyncId) => {
+      removeItem: (id) => {
         set((state) => ({
-          items: state.items.filter((i) => i.productSyncId !== productSyncId),
+          items: state.items.filter((i) => i.id !== id),
         }));
       },
 
-      updateQuantity: (productSyncId, quantity) => {
+      updateQuantity: (id, quantity) => {
         if (quantity < 1) {
           // Treat setting quantity to 0 as removal
-          get().removeItem(productSyncId);
+          get().removeItem(id);
           return;
         }
         set((state) => ({
           items: state.items.map((i) =>
-            i.productSyncId === productSyncId ? { ...i, quantity } : i
+            i.id === id ? { ...i, quantity } : i
           ),
         }));
       },

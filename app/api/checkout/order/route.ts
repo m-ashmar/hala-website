@@ -25,8 +25,10 @@ import {
   createPendingOrder,
   generateReferenceCode,
   updateOrderStripeSession,
+  getOrderWithItemsById,
   type ValidatedOrderItem,
 } from '@/lib/repositories/order.repository';
+import { syncOrderToSanity } from '@/lib/services/sanity-sync.service';
 
 // Initialize Stripe (optional chaining for safety if key is missing)
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -144,6 +146,12 @@ export async function POST(req: NextRequest) {
       referenceCode,
       currency,
       expiresAt,
+    });
+
+    // 6a. Sync new order to Sanity (Postgres → Sanity, best-effort, no await block)
+    // We fetch the full order so the sync payload includes items + productSync.
+    void getOrderWithItemsById(order.id).then((full) => {
+      if (full) return syncOrderToSanity(full);
     });
 
     // 7. Handle Stripe payment method

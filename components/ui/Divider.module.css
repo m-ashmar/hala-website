@@ -1,0 +1,39 @@
+.hr {
+  border: none;
+  border-top: 1px solid rgba(207, 161, 141, 0.12);
+  margin: 0;
+}
+
+.decorative {
+  width: 56px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-light));
+  border-radius: var(--radius-full);
+  margin: 0 auto;
+}
+
+.withLabel {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.line {
+  flex: 1;
+  height: 1px;
+  background: rgba(207, 161, 141, 0.15);
+}
+
+.left  .line:first-child { flex: 0 0 24px; }
+.right .line:last-child  { flex: 0 0 24px; }
+
+.labelText {
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+}

@@ -1,0 +1,107 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fullWidth { width: 100%; }
+
+.label {
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.inputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input {
+  width: 100%;
+  padding: 14px 18px;
+  background: var(--card-bg);
+  border: 1.5px solid rgba(207, 161, 141, 0.2);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  transition: all var(--transition-base);
+  outline: none;
+  line-height: 1.5;
+}
+
+.input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.5;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(207, 161, 141, 0.12);
+}
+
+/* Icon padding adjustments */
+.hasIconLeft .input  { padding-left: 46px; }
+.hasIconRight .input { padding-right: 46px; }
+
+/* Error state */
+.hasError .input {
+  border-color: rgba(239, 68, 68, 0.5);
+}
+.hasError .input:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1);
+}
+
+/* Icon */
+.icon {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-secondary);
+  pointer-events: none;
+  line-height: 0;
+}
+
+.iconLeft  { left: 16px; }
+.iconRight { right: 16px; }
+
+/* Messages */
+.error {
+  font-size: 0.78rem;
+  color: #f87171;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.error::before {
+  content: '⚠';
+  font-size: 0.7rem;
+}
+
+.hint {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  margin: 0;
+}
+
+/* RTL */
+[dir='rtl'] .input {
+  font-family: var(--font-arabic), var(--font-body);
+  text-align: right;
+}
+
+[dir='rtl'] .hasIconLeft  .input { padding-left: 18px;  padding-right: 46px; }
+[dir='rtl'] .hasIconRight .input { padding-right: 18px; padding-left: 46px; }
+[dir='rtl'] .iconLeft  { left: auto;  right: 16px; }
+[dir='rtl'] .iconRight { right: auto; left: 16px;  }

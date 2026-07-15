@@ -1,0 +1,102 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  scrollbar-width: none;
+}
+
+.wrap::-webkit-scrollbar { display: none; }
+
+/* ── Step ── */
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  min-width: 60px;
+}
+
+.node {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  transition: all var(--transition-base);
+  position: relative;
+  z-index: 1;
+}
+
+.nodeNum {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.label {
+  font-size: 0.68rem;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  transition: color var(--transition-base);
+}
+
+/* States */
+.done .node {
+  background: linear-gradient(135deg, #34d399, #6ee7b7);
+  color: #052e16;
+  box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.15);
+}
+
+.done .label { color: #34d399; }
+
+.active .node {
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  color: #3A2E2A;
+  box-shadow: 0 0 0 5px rgba(207, 161, 141, 0.2), 0 2px 12px rgba(207, 161, 141, 0.35);
+  animation: activePulse 2s ease-in-out infinite;
+}
+
+@keyframes activePulse {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(207, 161, 141, 0.18), 0 2px 12px rgba(207, 161, 141, 0.28); }
+  50%       { box-shadow: 0 0 0 8px rgba(207, 161, 141, 0.1),  0 2px 16px rgba(207, 161, 141, 0.4);  }
+}
+
+.active .label {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.pending .node {
+  background: rgba(207, 161, 141, 0.06);
+  color: var(--text-secondary);
+  border: 1.5px solid rgba(207, 161, 141, 0.15);
+}
+
+.pending .label { color: var(--text-secondary); opacity: 0.5; }
+
+/* ── Connector ── */
+.connector {
+  flex: 1;
+  height: 2px;
+  background: rgba(207, 161, 141, 0.12);
+  margin-bottom: 26px;
+  min-width: 16px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 1px;
+}
+
+.connectorFilled {
+  background: linear-gradient(90deg, #34d399, rgba(52, 211, 153, 0.4));
+}
+
+[dir='rtl'] .connectorFilled {
+  background: linear-gradient(270deg, #34d399, rgba(52, 211, 153, 0.4));
+}

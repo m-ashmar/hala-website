@@ -4,6 +4,10 @@ import type { StructureResolver } from 'sanity/structure'
  * Custom Sanity Studio structure.
  * Singletons (siteSettings, shippingSettings) appear as single documents
  * rather than list views. All other types are standard document lists.
+ *
+ * Business operations (Orders, Coupons) are synced from PostgreSQL.
+ * Orders are read-only except for the status field.
+ * Coupons are fully editable; changes sync back to PostgreSQL via webhook.
  */
 export const structure: StructureResolver = (S) =>
   S.list()
@@ -19,6 +23,23 @@ export const structure: StructureResolver = (S) =>
         .title('Promotions & Offers')
         .icon(() => '🏷️')
         .child(S.documentTypeList('promotion').title('Promotions')),
+
+      S.divider(),
+
+      // ── Business Operations ───────────────────────────────────
+      S.listItem()
+        .title('Orders')
+        .icon(() => '📦')
+        .child(
+          S.documentTypeList('order')
+            .title('Orders')
+            .defaultOrdering([{ field: 'pgCreatedAt', direction: 'desc' }])
+        ),
+
+      S.listItem()
+        .title('Coupons')
+        .icon(() => '🎟️')
+        .child(S.documentTypeList('coupon').title('Coupons')),
 
       S.divider(),
 

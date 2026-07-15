@@ -5,6 +5,8 @@
  */
 
 export interface CartItem {
+  /** unique identifier for this cart line (hash of productSyncId + customization) */
+  id: string;
   /** matches ProductSync.id in the database */
   productSyncId: string;
   /** human-readable slug from Sanity (e.g. "hijab-rose-silk") */
@@ -27,9 +29,9 @@ export interface CartItem {
 
 export interface CartStore {
   items: CartItem[];
-  addItem: (item: Omit<CartItem, 'quantity'> & { quantity?: number }) => void;
-  removeItem: (productSyncId: string) => void;
-  updateQuantity: (productSyncId: string, quantity: number) => void;
+  addItem: (item: Omit<CartItem, 'quantity' | 'id'> & { quantity?: number }) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
   /** total number of individual units across all line items */
   totalItems: () => number;

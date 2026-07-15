@@ -1,0 +1,242 @@
+/* ── Navbar shell ── */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 0;
+  transition: background var(--transition-base), box-shadow var(--transition-base), padding var(--transition-base);
+}
+
+.scrolled {
+  background: rgba(250, 247, 245, 0.93);
+  backdrop-filter: blur(24px) saturate(160%);
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  box-shadow: 0 1px 0 rgba(207, 161, 141, 0.1), 0 4px 24px rgba(58, 46, 42, 0.06);
+}
+
+/* Dark mode — :global needed because .dark is on <html>, outside this component's scope */
+:global(.dark) .scrolled {
+  background: rgba(13, 11, 10, 0.93);
+  box-shadow: 0 1px 0 rgba(207, 161, 141, 0.08), 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+/* ── Inner ── */
+.inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 clamp(16px, 4vw, 40px);
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+/* ── Logo ── */
+.logo {
+  text-decoration: none;
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.logoText {
+  font-family: var(--font-heading);
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.03em;
+  transition: color var(--transition-base);
+}
+
+.logoAccent {
+  font-family: var(--font-heading);
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.03em;
+  font-style: italic;
+  transition: color var(--transition-base);
+}
+
+.logo:hover .logoText  { color: var(--accent); }
+.logo:hover .logoAccent { opacity: 0.8; }
+
+/* ── Desktop nav (HIDDEN for universal drawer) ── */
+.desktopNav { display: none; }
+
+/* ── Actions ── */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Lang toggle & Theme toggle (Moved to Drawer, but keep base classes if needed) */
+.langBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-radius: var(--radius-full);
+  background: rgba(207, 161, 141, 0.08);
+  border: 1px solid rgba(207, 161, 141, 0.2);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  transition: all var(--transition-base);
+  backdrop-filter: blur(4px);
+  width: 100%;
+  justify-content: center;
+  gap: 8px;
+}
+
+.langBtn:hover {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* ── Hamburger ── */
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  width: 44px;
+  height: 44px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 12px;
+  transition: background var(--transition-base);
+  z-index: 1001; /* Keep above drawer */
+}
+
+.hamburger:hover {
+  background: rgba(207, 161, 141, 0.1);
+}
+
+.bar {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px;
+  transition: transform 0.3s ease, opacity 0.3s ease, width 0.3s ease;
+  transform-origin: center;
+}
+
+.hamburgerOpen .bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburgerOpen .bar:nth-child(2) { opacity: 0; transform: scaleX(0); }
+.hamburgerOpen .bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ── Universal Drawer (Mobile & Desktop) ── */
+.mobileMenu {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 100%;
+  max-width: 360px;
+  z-index: 990;
+  background: var(--bg-primary);
+  border-left: 1px solid rgba(207, 161, 141, 0.1);
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  padding: 80px 32px 32px;
+  overflow-y: auto;
+}
+
+/* RTL Support for Drawer */
+:global([dir="rtl"]) .mobileMenu {
+  right: auto;
+  left: 0;
+  border-left: none;
+  border-right: 1px solid rgba(207, 161, 141, 0.1);
+  transform: translateX(-100%);
+  box-shadow: 16px 0 40px rgba(0, 0, 0, 0.08);
+}
+
+.mobileMenuOpen {
+  transform: translateX(0) !important;
+  opacity: 1;
+  pointer-events: all;
+}
+
+.mobileNav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 40px;
+}
+
+.mobileLink {
+  padding: 16px 20px;
+  border-radius: var(--radius-md);
+  font-size: 1.25rem;
+  font-family: var(--font-heading);
+  font-weight: 500;
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: all var(--transition-base);
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mobileLink:hover {
+  background: rgba(207, 161, 141, 0.06);
+  color: var(--accent);
+  padding-left: 24px;
+}
+:global([dir="rtl"]) .mobileLink:hover {
+  padding-left: 20px;
+  padding-right: 24px;
+}
+
+.mobileLinkActive {
+  color: var(--accent);
+  background: rgba(207, 161, 141, 0.08);
+  border-color: rgba(207, 161, 141, 0.15);
+  font-weight: 600;
+}
+
+.drawerFooter {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 32px;
+  border-top: 1px solid rgba(207, 161, 141, 0.15);
+}
+
+/* Backdrop */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 11, 10, 0.5);
+  z-index: 980;
+  backdrop-filter: blur(4px);
+  animation: fadeInBackdrop 0.3s ease;
+}
+
+@keyframes fadeInBackdrop {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

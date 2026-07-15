@@ -1,0 +1,150 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inputRow {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  padding: 13px 16px;
+  background: var(--card-bg);
+  border: 1.5px solid rgba(207, 161, 141, 0.2);
+  border-radius: var(--radius-sm);
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--text-primary);
+  text-transform: uppercase;
+  outline: none;
+  transition: all var(--transition-base);
+  min-width: 0;
+}
+
+.input::placeholder {
+  font-family: var(--font-body);
+  font-weight: 400;
+  letter-spacing: 0;
+  opacity: 0.45;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(207, 161, 141, 0.1);
+}
+
+.inputError:not(:focus) {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.inputSuccess:not(:focus) {
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+.applyBtn {
+  padding: 13px 22px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  border: none;
+  border-radius: var(--radius-sm);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.applyBtn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-glow);
+}
+
+.applyBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Messages */
+.error {
+  font-size: 0.78rem;
+  color: #f87171;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.successMsg {
+  font-size: 0.78rem;
+  color: #34d399;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+}
+
+/* Applied state */
+.applied {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(52, 211, 153, 0.06);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+.appliedLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.appliedCode {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #34d399;
+  letter-spacing: 0.08em;
+}
+
+.appliedSavings {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  opacity: 0.8;
+}
+
+.removeBtn {
+  background: none;
+  border: 1px solid rgba(248, 113, 113, 0.25);
+  border-radius: 6px;
+  padding: 4px 10px;
+  color: #f87171;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-base);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.removeBtn:hover {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+[dir='rtl'] .input { text-align: right; font-family: var(--font-arabic), 'Courier New', monospace; }

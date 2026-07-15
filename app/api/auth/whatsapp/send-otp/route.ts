@@ -1,16 +1,15 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { whatsappService } from '@/lib/services/whatsapp.service';
-import { defaultRateLimiter } from '@/lib/rate-limit';
+import { createRateLimiter } from '@/lib/rate-limit';
 
-export async function POST(req: Request) {
+// 5 OTP requests per IP per minute
+const otpLimiter = createRateLimiter({ limit: 5, windowMs: 60_000 });
+
+export async function POST(req: NextRequest) {
   try {
-    const ip = req.headers.get('x-forwarded-for') || 'unknown';
-    // Rate limit: Max 5 OTP requests per IP
-    try {
-      await defaultRateLimiter.check(5, `otp_${ip}`);
-    } catch (rateLimitResponse) {
-      return rateLimitResponse as NextResponse;
-    }
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || 'unknown';
+    const limited = otpLimiter.check(`otp_${ip}`);
+    if (limited) return limited;
 
     const { phone } = await req.json();
 
@@ -24,9 +23,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Phone number must be in E.164 format (e.g. +963912345678)' }, { status: 400 });
     }
 
-    await whatsappService.sendOTP(phone);
+    const result = await whatsappService.sendOTP(phone);
 
-    return NextResponse.json({ success: true, message: 'OTP sent successfully' });
+    return NextResponse.json({
+      success: true,
+      message: 'OTP sent successfully',
+      // In mock mode the code is returned so the login UI can display it
+      ...(result.mock && { mockCode: result.code }),
+    });
   } catch (error) {
     console.error('Send OTP Error:', error);
     return NextResponse.json({ error: 'Failed to send OTP' }, { status: 500 });

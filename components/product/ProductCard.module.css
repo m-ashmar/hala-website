@@ -1,0 +1,179 @@
+.card {
+  position: relative;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--card-bg);
+  border: 1px solid rgba(207, 161, 141, 0.08);
+  box-shadow: var(--shadow-soft);
+  transition: all var(--transition-base);
+  display: flex;
+  flex-direction: column;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-hover), 0 0 0 1px rgba(207, 161, 141, 0.15);
+}
+
+/* ── Image ── */
+.imageLink {
+  display: block;
+  text-decoration: none;
+}
+
+.imageWrap {
+  position: relative;
+  aspect-ratio: 4 / 5;
+  overflow: hidden;
+  background: var(--bg-secondary);
+}
+
+.img {
+  object-fit: cover;
+  transition: transform var(--transition-slow);
+}
+
+.imgMain {
+  transition: transform var(--transition-slow), opacity 0.4s ease;
+}
+
+.imgFade {
+  opacity: 0;
+}
+
+.imgHover {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.imgHoverVisible {
+  opacity: 1;
+}
+
+.card:hover .imgMain:not(.imgFade) {
+  transform: scale(1.06);
+}
+
+/* Placeholder */
+.placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(207, 161, 141, 0.25);
+  background: linear-gradient(135deg, var(--bg-secondary), var(--bg-primary));
+}
+
+/* Discount badge */
+.discountBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: linear-gradient(135deg, #ef4444, #f87171);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 4px 9px;
+  border-radius: var(--radius-full);
+  z-index: 2;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+}
+
+/* Quick view overlay */
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(58, 46, 42, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 20px;
+  opacity: 0;
+  transition: opacity var(--transition-base);
+  backdrop-filter: blur(2px);
+}
+
+.card:hover .overlay {
+  opacity: 1;
+}
+
+.quickView {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+  background: rgba(207, 161, 141, 0.85);
+  padding: 9px 22px;
+  border-radius: var(--radius-full);
+  backdrop-filter: blur(4px);
+  pointer-events: none;
+}
+
+/* Wishlist */
+.wishlistWrap {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 3;
+}
+
+/* ── Info ── */
+.info {
+  padding: 16px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-height: 22px;
+}
+
+.titleLink {
+  text-decoration: none;
+}
+
+.title {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  transition: color var(--transition-base);
+}
+
+.titleLink:hover .title {
+  color: var(--accent);
+}
+
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.price {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+}
+
+.originalPrice {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  opacity: 0.6;
+}

@@ -6,21 +6,26 @@ import Link from 'next/link';
 import { ProductGallery } from '@/components/product/ProductGallery';
 import { ProductInfo } from '@/components/product/ProductInfo';
 import { CustomizationForm } from '@/components/product/CustomizationForm';
+import { ProductCard } from '@/components/product/ProductCard';
+import { PageWrapper } from '@/components/layout/PageWrapper';
+import { Divider } from '@/components/ui/Divider';
+import { EmptyState } from '@/components/ui/EmptyState';
 import styles from './page.module.css';
 
 interface ProductPageProps {
-  params: {
+  params: Promise<{
     locale: string;
     slug: string;
-  };
+  }>;
 }
 
 export async function generateMetadata({ params }: ProductPageProps) {
-  const product = await getProductBySlug(params.slug);
+  const { locale, slug } = await params;
+  const product = await getProductBySlug(slug);
   if (!product) return {};
 
-  const title = params.locale === 'ar' && product.titleAr ? product.titleAr : product.title;
-  const description = params.locale === 'ar' && product.descriptionAr ? product.descriptionAr : product.description;
+  const title = locale === 'ar' && product.titleAr ? product.titleAr : product.title;
+  const description = locale === 'ar' && product.descriptionAr ? product.descriptionAr : product.description;
 
   return {
     title: product.metaTitle || `${title} | Halahello`,
@@ -29,7 +34,7 @@ export async function generateMetadata({ params }: ProductPageProps) {
 }
 
 export default async function ProductPage({ params }: ProductPageProps) {
-  const { locale, slug } = params;
+  const { locale, slug } = await params;
   const isAr = locale === 'ar';
 
   const product = await getProductBySlug(slug);
@@ -46,17 +51,10 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   const allImages = [product.imageUrl, ...(product.galleryUrls || [])].filter(Boolean) as string[];
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: 'SYP',
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
-
   return (
-    <div className={styles.pageContainer}>
-      <div className={styles.productLayout}>
+    <PageWrapper width="default" padTop padBottom>
+      {/* ── Product Area ── */}
+      <div className={styles.productLayout} dir={isAr ? 'rtl' : 'ltr'}>
         <div className={styles.gallerySection}>
           <ProductGallery
             images={allImages}
@@ -65,51 +63,46 @@ export default async function ProductPage({ params }: ProductPageProps) {
         </div>
 
         <div className={styles.infoSection}>
-          <ProductInfo product={product} />
+          <ProductInfo product={product} locale={locale} />
           
-          {dbProduct ? (
-            <CustomizationForm product={product} dbProductId={dbProduct.id} />
-          ) : (
-            <div style={{ padding: '1.5rem', background: '#fee2e2', color: '#991b1b', borderRadius: '12px' }}>
-              {isAr 
-                ? 'هذا المنتج غير متوفر حالياً (خطأ في المزامنة)' 
-                : 'This product is currently unavailable (sync error).'}
-            </div>
-          )}
+          <div className={styles.formWrapper}>
+            {dbProduct ? (
+              <CustomizationForm product={product} locale={locale} dbProductId={dbProduct.id} />
+            ) : (
+              <EmptyState
+                emoji="⚠"
+                title={isAr ? 'المنتج غير متوفر' : 'Product Unavailable'}
+                description={isAr ? 'حدث خطأ في مزامنة هذا المنتج. يرجى المحاولة لاحقاً.' : 'There was an issue loading this product. Please try again later.'}
+              />
+            )}
+          </div>
         </div>
       </div>
 
+      {/* ── Related Products ── */}
       {product.relatedProducts && product.relatedProducts.length > 0 && (
-        <div className={styles.relatedSection}>
-          <h2 className={styles.sectionTitle}>
-            {isAr ? 'قد يعجبك أيضاً' : 'You May Also Like'}
-          </h2>
-          <div className={styles.relatedGrid}>
-            {product.relatedProducts.map((related) => {
-              const relTitle = isAr && related.titleAr ? related.titleAr : related.title;
-              return (
-                <Link key={related._id} href={`/${locale}/products/${related.sanityId}`} className={styles.relatedCard}>
-                  <div className={styles.relatedImageWrapper}>
-                    <Image
-                      src={related.imageUrl}
-                      alt={relTitle}
-                      fill
-                      sizes="(max-width: 768px) 50vw, 25vw"
-                      className={styles.relatedImage}
-                    />
-                  </div>
-                  <div>
-                    <h3 className={styles.relatedTitle}>{relTitle}</h3>
-                    <p className={styles.relatedPrice}>
-                      {formatPrice(related.discountPrice ?? related.price)}
-                    </p>
-                  </div>
-                </Link>
-              );
-            })}
+        <section className={styles.relatedSection} aria-labelledby="related-title">
+          <Divider decorative />
+          <div className={styles.relatedHeader}>
+            <h2 id="related-title" className={styles.relatedTitle}>
+              {isAr ? 'قد يعجبك أيضاً' : 'You May Also Like'}
+            </h2>
+            <Link href={`/${locale}/products`} className={styles.viewAll}>
+              {isAr ? 'عرض الكل ←' : 'View All →'}
+            </Link>
           </div>
-        </div>
+
+          <div className={styles.relatedGrid}>
+            {product.relatedProducts.map((related) => (
+              <ProductCard
+                key={related._id}
+                product={related as any}
+                locale={locale}
+              />
+            ))}
+          </div>
+        </section>
       )}
-    </div>
+    </PageWrapper>
   );
 }

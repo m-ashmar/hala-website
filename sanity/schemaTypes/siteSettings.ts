@@ -83,6 +83,52 @@ export const siteSettingsType = defineType({
       type: 'boolean',
       initialValue: () => false,
     }),
+    // ── Hero Stats ──────────────────────────────────────────────────────────
+    defineField({
+      name: 'heroStats',
+      title: 'Hero Stats Bar',
+      type: 'array',
+      description: 'Up to 4 stat pills shown below the hero headline (e.g. "500+ Customers")',
+      of: [
+        {
+          type: 'object',
+          name: 'heroStat',
+          title: 'Stat',
+          fields: [
+            defineField({
+              name: 'value',
+              title: 'Value (English)',
+              type: 'string',
+              description: 'e.g. "500+"',
+              validation: (Rule) => Rule.required(),
+            }),
+            defineField({
+              name: 'valueAr',
+              title: 'Value (Arabic)',
+              type: 'string',
+              description: 'e.g. "+٥٠٠"',
+            }),
+            defineField({
+              name: 'label',
+              title: 'Label (English)',
+              type: 'string',
+              description: 'e.g. "Happy Customers"',
+              validation: (Rule) => Rule.required(),
+            }),
+            defineField({
+              name: 'labelAr',
+              title: 'Label (Arabic)',
+              type: 'string',
+              description: 'e.g. "عميل سعيد"',
+            }),
+          ],
+          preview: {
+            select: { title: 'value', subtitle: 'label' },
+          },
+        },
+      ],
+      validation: (Rule) => Rule.max(4),
+    }),
   ],
   preview: {
     select: { title: 'siteName', media: 'logo' },

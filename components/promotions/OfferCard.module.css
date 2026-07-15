@@ -1,0 +1,111 @@
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.15), 0 0 0 1px var(--card-border);
+}
+
+/* Banner */
+.banner {
+  position: relative;
+  height: 160px;
+  width: 100%;
+  overflow: hidden;
+}
+
+.bannerOverlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 50%, rgba(15,13,12,0.6));
+}
+
+/* Decorative orb */
+.orb {
+  position: absolute;
+  top: -50px;
+  right: -50px;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: var(--card-accent);
+  opacity: 0.06;
+  pointer-events: none;
+  filter: blur(30px);
+}
+
+/* Body */
+.body {
+  padding: clamp(20px, 4vw, 28px);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+}
+
+/* Header row */
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.discountBadge {
+  background: color-mix(in srgb, var(--card-accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--card-accent) 40%, transparent);
+  color: var(--card-accent);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  font-size: clamp(0.95rem, 2.5vw, 1.2rem);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+/* Title */
+.title {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.description {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.65;
+  opacity: 0.8;
+  flex: 1;
+}
+
+/* Coupon section */
+.couponSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.couponLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  opacity: 0.5;
+}

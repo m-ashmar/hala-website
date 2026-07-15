@@ -1,0 +1,120 @@
+.link {
+  text-decoration: none;
+  display: block;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid rgba(207, 161, 141, 0.1);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-soft);
+}
+
+.link:hover .card,
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-card), 0 0 0 1px rgba(207, 161, 141, 0.2);
+  border-color: rgba(207, 161, 141, 0.25);
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ref {
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+}
+
+.date {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+/* Thumbnails */
+.thumbs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.thumb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border: 1px solid rgba(207, 161, 141, 0.12);
+  flex-shrink: 0;
+}
+
+.thumbPlaceholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(207,161,141,0.08), rgba(207,161,141,0.03));
+}
+
+.thumbExtra {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  background: rgba(207, 161, 141, 0.06);
+}
+
+.qty {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 0.55rem;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
+/* Footer */
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 12px;
+  border-top: 1px solid rgba(207, 161, 141, 0.08);
+}
+
+.itemCount {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  opacity: 0.7;
+}
+
+.total {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+}

@@ -15,33 +15,39 @@ export class WhatsAppService {
   }
 
   /**
-   * Checks if we are running in mock mode (dev only).
+   * Mock mode is active when:
+   *  - WHATSAPP_MOCK=true is set, OR
+   *  - No API credentials are configured (auto-fallback so the app never crashes in dev)
    */
   isMockMode(): boolean {
-    return process.env.WHATSAPP_MOCK === 'true';
+    if (process.env.WHATSAPP_MOCK === 'true') return true;
+    // Auto-mock if credentials are absent (safe dev fallback)
+    const hasCredentials =
+      !!process.env.WHATSAPP_API_TOKEN && !!process.env.WHATSAPP_PHONE_ID;
+    return !hasCredentials;
   }
 
   /**
    * Generates, stores, and sends an OTP to the given phone number.
    * @param phone E.164 formatted phone number (e.g. +963912345678)
    */
-  async sendOTP(phone: string): Promise<void> {
-    const code = this.isMockMode() ? '123456' : this.generateOTP();
-    
+  /**
+   * Generates, stores, and sends (or mocks) an OTP.
+   * Returns the mock code string in mock mode so the API route can surface it to the UI.
+   */
+  async sendOTP(phone: string): Promise<{ mock: true; code: string } | { mock: false }> {
+    const mockMode = this.isMockMode();
+    const code = mockMode ? '123456' : this.generateOTP();
+
     // Store in database (expires in 10 minutes)
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
     await prisma.phoneVerification.create({
-      data: {
-        phone,
-        code,
-        expiresAt,
-        used: false,
-      },
+      data: { phone, code, expiresAt, used: false },
     });
 
-    if (this.isMockMode()) {
-      console.log(`[WHATSAPP MOCK] OTP for ${phone} is ${code}`);
-      return;
+    if (mockMode) {
+      console.log(`\n🔐 [WHATSAPP MOCK] OTP for ${phone}: ${code}  (use this to log in)\n`);
+      return { mock: true, code };
     }
 
     // Determine which provider to use based on env vars
@@ -56,6 +62,8 @@ export class WhatsAppService {
     } else {
       throw new Error(`Unknown WhatsApp provider: ${provider}`);
     }
+
+    return { mock: false };
   }
 
   private async sendViaMeta(phone: string, code: string): Promise<void> {

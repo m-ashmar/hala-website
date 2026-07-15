@@ -6,6 +6,8 @@ import { testimonialType } from './testimonial'
 import { siteSettingsType } from './siteSettings'
 import { faqType } from './faq'
 import { shippingSettingsType } from './shippingSettings'
+import { orderType } from './order'
+import { couponType } from './coupon'
 
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
@@ -15,6 +17,9 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     homepageBannerType,
     testimonialType,
     faqType,
+    // Business operations (synced from PostgreSQL)
+    orderType,
+    couponType,
     // Singletons
     siteSettingsType,
     shippingSettingsType,

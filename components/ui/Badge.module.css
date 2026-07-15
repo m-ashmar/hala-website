@@ -1,0 +1,80 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: var(--radius-full);
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* ── Sizes ── */
+.sm {
+  padding: 3px 8px;
+  font-size: 0.68rem;
+}
+
+.md {
+  padding: 5px 12px;
+  font-size: 0.75rem;
+}
+
+/* ── Dot ── */
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+/* ── Variants ── */
+.default {
+  background: rgba(207, 161, 141, 0.12);
+  color: var(--accent);
+  border: 1px solid rgba(207, 161, 141, 0.25);
+}
+
+.accent {
+  background: linear-gradient(135deg, var(--accent), var(--accent-light));
+  color: #fff;
+  border: none;
+}
+
+.success {
+  background: rgba(52, 211, 153, 0.1);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.warning {
+  background: rgba(245, 158, 11, 0.1);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.info {
+  background: rgba(96, 165, 250, 0.1);
+  color: #60a5fa;
+  border: 1px solid rgba(96, 165, 250, 0.25);
+}
+
+.purple {
+  background: rgba(167, 139, 250, 0.1);
+  color: #a78bfa;
+  border: 1px solid rgba(167, 139, 250, 0.25);
+}
+
+.outline {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid rgba(207, 161, 141, 0.3);
+}

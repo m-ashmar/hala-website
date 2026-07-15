@@ -2,16 +2,18 @@
 
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
-import { useTranslations } from 'next-intl';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { Lang, tr } from '@/app/translations';
 import Image from 'next/image';
 import Link from 'next/link';
 import styles from './page.module.css';
 
 export default function LoginPage() {
-  const t = useTranslations();
+  const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const lang = (params?.locale as Lang) || 'en';
+  const t = (key: Parameters<typeof tr>[0]) => tr(key, lang);
   const callbackUrl = searchParams.get('callbackUrl') || '/';
 
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
@@ -19,6 +21,7 @@ export default function LoginPage() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [mockCode, setMockCode] = useState<string | null>(null);
 
   const handleSendOTP = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +51,12 @@ export default function LoginPage() {
       }
 
       setPhone(formattedPhone); // store formatted for next step
+      // In mock mode the server returns the code directly
+      if (data.mockCode) {
+        setMockCode(data.mockCode);
+        // Auto-fill the OTP fields so the user can just click submit
+        setOtp(data.mockCode.split(''));
+      }
       setStep('otp');
     } catch (err: any) {
       setError(err.message);
@@ -130,6 +139,29 @@ export default function LoginPage() {
           <div className={styles.error}>
             <span>⚠️</span>
             <p style={{ margin: 0 }}>{error}</p>
+          </div>
+        )}
+
+        {/* ── Dev mock OTP banner ── */}
+        {mockCode && step === 'otp' && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(245,158,11,0.06))',
+            border: '1px solid rgba(245,158,11,0.3)',
+            borderRadius: 12, padding: '12px 16px',
+            marginBottom: 4,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+              <span style={{ fontSize: '0.9rem' }}>🔐</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#f59e0b', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                Dev Mode — Mock OTP
+              </span>
+            </div>
+            <div style={{ fontFamily: 'monospace', fontSize: '1.6rem', fontWeight: 800, color: '#fbbf24', letterSpacing: '0.3em', textAlign: 'center', margin: '6px 0 2px' }}>
+              {mockCode}
+            </div>
+            <p style={{ fontSize: '0.72rem', color: 'rgba(251,191,36,0.6)', margin: 0, textAlign: 'center' }}>
+              Fields pre-filled — click Verify to continue
+            </p>
           </div>
         )}
 

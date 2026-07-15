@@ -4,15 +4,14 @@ import { useState } from 'react';
 import { useCartStore } from '@/lib/stores/cart.store';
 import { SanityProduct } from '@/sanity/lib/queries';
 import styles from './CustomizationForm.module.css';
-import { useLocale } from 'next-intl';
 
 interface CustomizationFormProps {
   product: SanityProduct;
+  locale: string;
   dbProductId: string; // ProductSync.id from the database
 }
 
-export function CustomizationForm({ product, dbProductId }: CustomizationFormProps) {
-  const locale = useLocale();
+export function CustomizationForm({ product, locale, dbProductId }: CustomizationFormProps) {
   const isAr = locale === 'ar';
   const addItem = useCartStore((state) => state.addItem);
 

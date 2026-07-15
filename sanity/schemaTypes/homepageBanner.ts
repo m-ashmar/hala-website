@@ -28,20 +28,37 @@ export const homepageBannerType = defineType({
     }),
     defineField({
       name: 'ctaLabel',
-      title: 'Button Label (English)',
+      title: 'Primary Button Label (English)',
       type: 'string',
       description: 'Call-to-action button text (e.g. "Shop Now")',
     }),
     defineField({
       name: 'ctaLabelAr',
-      title: 'Button Label (Arabic)',
+      title: 'Primary Button Label (Arabic)',
       type: 'string',
     }),
     defineField({
       name: 'ctaLink',
-      title: 'Button Link',
+      title: 'Primary Button Link',
       type: 'string',
-      description: 'URL or path the button links to (e.g. /products or /offers)',
+      description: 'URL or path (e.g. /products, /offers, or #hijab-products to scroll)',
+    }),
+    defineField({
+      name: 'ctaLabel2',
+      title: 'Secondary Button Label (English)',
+      type: 'string',
+      description: 'Optional second button text (e.g. "Discover Plexi")',
+    }),
+    defineField({
+      name: 'ctaLabelAr2',
+      title: 'Secondary Button Label (Arabic)',
+      type: 'string',
+    }),
+    defineField({
+      name: 'ctaLink2',
+      title: 'Secondary Button Link',
+      type: 'string',
+      description: 'URL or section ID for the second button (e.g. #plexi-products to scroll)',
     }),
     defineField({
       name: 'backgroundImage',

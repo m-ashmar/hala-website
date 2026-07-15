@@ -1,13 +1,32 @@
 'use client';
 
-import { useCartStore } from '@/lib/stores/cart.store';
+import React, { useState, useRef } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
+import { useCartStore } from '@/lib/stores/cart.store';
+import { PageWrapper } from '@/components/layout/PageWrapper';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Divider } from '@/components/ui/Divider';
+import { Spinner } from '@/components/ui/Spinner';
+import styles from './cart.module.css';
 
-const currency = process.env.NEXT_PUBLIC_CURRENCY ?? 'SYP';
+const CURRENCY = process.env.NEXT_PUBLIC_CURRENCY ?? 'SYP';
 
-function formatPrice(amount: number) {
-  return `${amount.toLocaleString()} ${currency}`;
+function fmt(amount: number, locale = 'en') {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency', currency: CURRENCY, maximumFractionDigits: 0,
+  }).format(amount);
+}
+
+interface CouponResult {
+  couponId: string;
+  code: string;
+  discountType: 'PERCENTAGE' | 'FIXED';
+  discountValue: number;
+  discountAmount: number;
+  finalAmount: number;
+  description: string | null;
 }
 
 export default function CartPage() {
@@ -15,228 +34,293 @@ export default function CartPage() {
   const router = useRouter();
   const params = useParams();
   const locale = (params?.locale as string) ?? 'en';
+  const isAr = locale === 'ar';
 
-  // ── Empty state ────────────────────────────────────────────────────────────
+  const [couponCode, setCouponCode]   = useState('');
+  const [couponResult, setCouponResult] = useState<CouponResult | null>(null);
+  const [couponError, setCouponError] = useState('');
+  const [couponLoading, setCouponLoading] = useState(false);
+  const couponInputRef = useRef<HTMLInputElement>(null);
+
+  const handleApplyCoupon = async () => {
+    const code = couponCode.trim();
+    if (!code) return;
+    setCouponError('');
+    setCouponResult(null);
+    setCouponLoading(true);
+    try {
+      const res = await fetch('/api/promotions/validate-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, orderAmount: subtotal() }),
+      });
+      const data = await res.json();
+      if (data.valid) {
+        setCouponResult(data);
+      } else {
+        setCouponError(data.error ?? (isAr ? 'كود غير صالح' : 'Invalid coupon code.'));
+      }
+    } catch {
+      setCouponError(isAr ? 'خطأ في الشبكة' : 'Network error. Please try again.');
+    } finally {
+      setCouponLoading(false);
+    }
+  };
+
+  const removeCoupon = () => {
+    setCouponResult(null);
+    setCouponCode('');
+    setCouponError('');
+  };
+
+  const finalAmount = couponResult ? couponResult.finalAmount : subtotal();
+
+  // ── Empty State ─────────────────────────────────────────────────────────────
   if (items.length === 0) {
     return (
-      <div style={{
-        minHeight: '100vh',
-        background: 'linear-gradient(180deg, #0F0D0C 0%, #140F0E 100%)',
-        display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center',
-        fontFamily: 'var(--font-body, Inter, sans-serif)',
-        padding: 24,
-      }}>
-        <div className="empty-state">
-          {/* Animated bag icon */}
-          <div className="empty-state-icon" aria-hidden="true">
-            🛍️
-          </div>
-
-          <h1 style={{ fontSize: '1.6rem', fontWeight: 700, color: '#FAF7F5', margin: 0 }}>
-            Your bag is empty
-          </h1>
-          <p style={{ color: 'rgba(250,247,245,0.45)', fontSize: '0.95rem', maxWidth: 320, lineHeight: 1.7, margin: 0 }}>
-            Discover our curated Hijab and Plexi collections and add your favourite pieces.
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 300 }}>
-            <Link
-              href="/#hijab-products"
-              id="cart-empty-hijab-link"
-              style={{
-                display: 'block', padding: '14px',
-                background: 'linear-gradient(135deg, #CFA18D, #E3B8A7)',
-                borderRadius: 12, color: '#3A2E2A',
-                fontWeight: 700, textDecoration: 'none',
-                textAlign: 'center', fontSize: '0.9rem',
-              }}
-            >
-              Explore Hijab Collection
-            </Link>
-            <Link
-              href="/#plexi-products"
-              id="cart-empty-plexi-link"
-              style={{
-                display: 'block', padding: '14px',
-                background: 'rgba(207,161,141,0.08)',
-                border: '1px solid rgba(207,161,141,0.2)',
-                borderRadius: 12, color: '#CFA18D',
-                fontWeight: 600, textDecoration: 'none',
-                textAlign: 'center', fontSize: '0.9rem',
-              }}
-            >
-              Explore Plexi Collection
-            </Link>
-          </div>
-        </div>
-      </div>
+      <PageWrapper width="narrow" padTop padBottom>
+        <EmptyState
+          emoji="🛍️"
+          title={isAr ? 'حقيبتك فارغة' : 'Your bag is empty'}
+          description={
+            isAr
+              ? 'اكتشف مجموعات الحجاب والبليكسي المميزة وأضف قطعك المفضلة.'
+              : 'Discover our curated Hijab and Plexi collections and add your favourite pieces.'
+          }
+          action={{ label: isAr ? 'تسوق الآن' : 'Shop Now', href: `/${locale}/products` }}
+        />
+      </PageWrapper>
     );
   }
 
-  // ── Filled cart ────────────────────────────────────────────────────────────
+  // ── Filled Cart ──────────────────────────────────────────────────────────────
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(180deg, #0F0D0C 0%, #140F0E 100%)',
-      fontFamily: 'var(--font-body, Inter, sans-serif)',
-      padding: 'clamp(32px, 5vw, 60px) 16px',
-    }}>
-      <div style={{ maxWidth: 720, margin: '0 auto' }}>
+    <PageWrapper width="wide" padTop padBottom>
+      <div className={styles.layout} dir={isAr ? 'rtl' : 'ltr'}>
 
-        {/* Header */}
-        <div style={{
-          display: 'flex', alignItems: 'center',
-          justifyContent: 'space-between', marginBottom: 36,
-          flexWrap: 'wrap', gap: 12,
-        }}>
-          <div>
-            <h1 style={{
-              fontSize: 'clamp(1.4rem, 4vw, 1.75rem)',
-              fontWeight: 700, color: '#FAF7F5', margin: 0, letterSpacing: '-0.02em',
-            }}>
-              Your Cart
-            </h1>
-            <p style={{ color: 'rgba(250,247,245,0.4)', marginTop: 6, fontSize: '0.875rem' }}>
-              {totalItems()} item{totalItems() !== 1 ? 's' : ''}
-            </p>
-          </div>
-          <Link href="/" style={{ fontSize: '0.85rem', color: '#CFA18D', textDecoration: 'none' }}>
-            ← Continue Shopping
-          </Link>
-        </div>
-
-        {/* Item list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 32 }}>
-          {items.map((item) => (
-            <div
-              key={item.productSyncId}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                background: 'linear-gradient(135deg, #1E1816, #1A1412)',
-                border: '1px solid rgba(207,161,141,0.1)',
-                borderRadius: 16, padding: '14px 16px',
-                flexWrap: 'wrap',
-              }}
-            >
-              {/* Product info */}
-              <div style={{ flex: 1, minWidth: 120 }}>
-                <div style={{ fontWeight: 600, color: '#FAF7F5', fontSize: '0.9rem', marginBottom: 4 }}>
-                  {item.name || item.sanityId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                </div>
-                <div style={{ fontSize: '0.78rem', color: 'rgba(250,247,245,0.35)', fontFamily: 'monospace' }}>
-                  {item.sanityId}
-                </div>
-              </div>
-
-              {/* Quantity controls — touch-friendly 44px min */}
-              <div style={{
-                display: 'flex', alignItems: 'center',
-                background: 'rgba(207,161,141,0.08)',
-                border: '1px solid rgba(207,161,141,0.15)',
-                borderRadius: 8, overflow: 'hidden',
-              }}>
-                <button
-                  onClick={() => updateQuantity(item.productSyncId, item.quantity - 1)}
-                  aria-label={`Decrease quantity of ${item.name || item.sanityId}`}
-                  style={{
-                    width: 44, height: 44,
-                    background: 'none', border: 'none',
-                    color: '#CFA18D', cursor: 'pointer',
-                    fontSize: '1.1rem', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                  }}
-                >−</button>
-                <span style={{
-                  width: 32, textAlign: 'center',
-                  color: '#FAF7F5', fontSize: '0.9rem', fontWeight: 600,
-                }}>
-                  {item.quantity}
-                </span>
-                <button
-                  onClick={() => updateQuantity(item.productSyncId, item.quantity + 1)}
-                  aria-label={`Increase quantity of ${item.name || item.sanityId}`}
-                  style={{
-                    width: 44, height: 44,
-                    background: 'none', border: 'none',
-                    color: '#CFA18D', cursor: 'pointer',
-                    fontSize: '1.1rem', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                  }}
-                >+</button>
-              </div>
-
-              {/* Price */}
-              <div style={{ minWidth: 90, textAlign: 'right' }}>
-                <div style={{ fontWeight: 700, color: '#CFA18D', fontSize: '0.95rem' }}>
-                  {formatPrice(item.price * item.quantity)}
-                </div>
-                {item.quantity > 1 && (
-                  <div style={{ fontSize: '0.75rem', color: 'rgba(250,247,245,0.35)' }}>
-                    {formatPrice(item.price)} each
-                  </div>
-                )}
-              </div>
-
-              {/* Remove */}
-              <button
-                onClick={() => removeItem(item.productSyncId)}
-                aria-label={`Remove ${item.name || item.sanityId} from cart`}
-                title="Remove item"
-                style={{
-                  width: 36, height: 36,
-                  background: 'rgba(239,68,68,0.08)',
-                  border: '1px solid rgba(239,68,68,0.15)',
-                  borderRadius: 8, color: '#f87171',
-                  cursor: 'pointer', fontSize: '0.85rem',
-                  display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', flexShrink: 0,
-                }}
-              >✕</button>
+        {/* ══ LEFT — Item list ══ */}
+        <section className={styles.itemsSection} aria-label={isAr ? 'قائمة المنتجات' : 'Cart items'}>
+          {/* Header */}
+          <div className={styles.itemsHeader}>
+            <div>
+              <h1 className={styles.heading}>
+                {isAr ? 'حقيبة التسوق' : 'Shopping Bag'}
+              </h1>
+              <p className={styles.itemCount}>
+                {totalItems()} {totalItems() === 1 ? (isAr ? 'منتج' : 'item') : (isAr ? 'منتجات' : 'items')}
+              </p>
             </div>
-          ))}
-        </div>
-
-        {/* Order summary */}
-        <div style={{
-          background: 'linear-gradient(135deg, #1E1816, #1A1412)',
-          border: '1px solid rgba(207,161,141,0.15)',
-          borderRadius: 20, padding: 'clamp(18px, 4vw, 28px)',
-        }}>
-          <div style={{
-            display: 'flex', justifyContent: 'space-between',
-            alignItems: 'center', marginBottom: 20,
-            paddingBottom: 20, borderBottom: '1px solid rgba(207,161,141,0.08)',
-          }}>
-            <span style={{ color: 'rgba(250,247,245,0.6)', fontSize: '0.9rem' }}>
-              Subtotal ({totalItems()} items)
-            </span>
-            <span style={{ color: '#FAF7F5', fontWeight: 700, fontSize: '1.1rem' }}>
-              {formatPrice(subtotal())}
-            </span>
+            <Link href={`/${locale}/products`} className={styles.continueLink}>
+              {isAr ? '← متابعة التسوق' : '← Continue Shopping'}
+            </Link>
           </div>
-          <p style={{ fontSize: '0.8rem', color: 'rgba(250,247,245,0.35)', marginBottom: 20, lineHeight: 1.6 }}>
-            Payment via ShamCash transfer. You will receive the account details on the next step.
+
+          <Divider />
+
+          {/* Cart rows */}
+          <div className={styles.itemsList}>
+            {items.map((item) => (
+              <div key={item.id} className={styles.itemRow}>
+                {/* Thumbnail */}
+                <div className={styles.thumb}>
+                  {item.imageUrl ? (
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.name ?? 'Product'}
+                      fill
+                      sizes="88px"
+                      style={{ objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div className={styles.thumbPlaceholder}>
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                        <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+
+                {/* Info */}
+                <div className={styles.itemInfo}>
+                  <p className={styles.itemName}>
+                    {item.name ?? item.sanityId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                  </p>
+                  {item.customization && Object.keys(item.customization).length > 0 && (
+                    <div className={styles.customTags}>
+                      {Object.entries(item.customization).map(([k, v]) => (
+                        <span key={k} className={styles.customTag}>{k}: {v}</span>
+                      ))}
+                    </div>
+                  )}
+                  {/* Unit price on mobile */}
+                  <p className={styles.unitPrice}>{fmt(item.price, locale)}</p>
+                </div>
+
+                {/* Quantity stepper */}
+                <div className={styles.stepper}>
+                  <button
+                    className={styles.stepBtn}
+                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                    aria-label={`Decrease quantity of ${item.name ?? item.sanityId}`}
+                  >−</button>
+                  <span className={styles.stepQty}>{item.quantity}</span>
+                  <button
+                    className={styles.stepBtn}
+                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                    aria-label={`Increase quantity of ${item.name ?? item.sanityId}`}
+                  >+</button>
+                </div>
+
+                {/* Line total */}
+                <div className={styles.lineTotal}>
+                  <span className={styles.lineTotalAmt}>{fmt(item.price * item.quantity, locale)}</span>
+                  {item.quantity > 1 && (
+                    <span className={styles.lineTotalUnit}>{fmt(item.price, locale)} {isAr ? 'للقطعة' : 'each'}</span>
+                  )}
+                </div>
+
+                {/* Remove */}
+                <button
+                  className={styles.removeBtn}
+                  onClick={() => removeItem(item.id)}
+                  aria-label={`Remove ${item.name ?? item.sanityId} from cart`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ══ RIGHT — Order summary ══ */}
+        <aside className={styles.summaryBox} aria-label={isAr ? 'ملخص الطلب' : 'Order summary'}>
+          <h2 className={styles.summaryTitle}>{isAr ? 'ملخص الطلب' : 'Order Summary'}</h2>
+
+          {/* Summary rows */}
+          <div className={styles.summaryRows}>
+            <div className={styles.summaryRow}>
+              <span>{isAr ? `المجموع الفرعي (${totalItems()} منتج)` : `Subtotal (${totalItems()} items)`}</span>
+              <span className={styles.summaryAmt}>{fmt(subtotal(), locale)}</span>
+            </div>
+
+            {couponResult && (
+              <div className={[styles.summaryRow, styles.discountRow].join(' ')}>
+                <span>{isAr ? 'خصم الكوبون' : 'Coupon discount'}</span>
+                <span className={styles.discountAmt}>− {fmt(couponResult.discountAmount, locale)}</span>
+              </div>
+            )}
+
+            <div className={styles.shippingRow}>
+              <span>{isAr ? 'الشحن' : 'Shipping'}</span>
+              <span className={styles.freeTag}>{isAr ? 'يُحدَّد لاحقاً' : 'Calculated at checkout'}</span>
+            </div>
+          </div>
+
+          <Divider />
+
+          {/* Total */}
+          <div className={styles.totalRow}>
+            <span className={styles.totalLabel}>{isAr ? 'الإجمالي' : 'Total'}</span>
+            <span className={styles.totalAmt}>{fmt(finalAmount, locale)}</span>
+          </div>
+
+          {/* Coupon area */}
+          <div className={styles.couponSection}>
+            <p className={styles.couponHeading}>{isAr ? 'كود الخصم' : 'Promo Code'}</p>
+
+            {!couponResult ? (
+              <div className={styles.couponRow}>
+                <input
+                  ref={couponInputRef}
+                  id="cart-coupon-input"
+                  type="text"
+                  placeholder={isAr ? 'أدخل الكود…' : 'Enter code…'}
+                  value={couponCode}
+                  onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponError(''); }}
+                  onKeyDown={e => e.key === 'Enter' && handleApplyCoupon()}
+                  className={[styles.couponInput, couponError ? styles.couponInputError : ''].filter(Boolean).join(' ')}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+                <button
+                  id="cart-apply-coupon-btn"
+                  onClick={handleApplyCoupon}
+                  disabled={!couponCode.trim() || couponLoading}
+                  className={styles.couponBtn}
+                >
+                  {couponLoading ? <Spinner size={14} /> : (isAr ? 'تطبيق' : 'Apply')}
+                </button>
+              </div>
+            ) : (
+              <div className={styles.couponApplied}>
+                <div className={styles.couponAppliedInfo}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12" /></svg>
+                  <span className={styles.couponCode}>{couponResult.code}</span>
+                  <span className={styles.couponSavings}>
+                    {couponResult.discountType === 'PERCENTAGE'
+                      ? `${couponResult.discountValue}% off`
+                      : `− ${fmt(couponResult.discountAmount, locale)}`}
+                  </span>
+                </div>
+                <button onClick={removeCoupon} className={styles.couponRemove}>
+                  {isAr ? 'إزالة' : 'Remove'}
+                </button>
+              </div>
+            )}
+
+            {couponError && (
+              <p className={styles.couponError} role="alert">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" /></svg>
+                {couponError}
+              </p>
+            )}
+
+            <Link href={`/${locale}/offers`} className={styles.viewOffers}>
+              {isAr ? 'عرض جميع العروض ←' : 'View all offers →'}
+            </Link>
+          </div>
+
+          {/* Notice */}
+          <p className={styles.paymentNotice}>
+            {isAr
+              ? '💬 الدفع عبر ShamCash. ستتلقى تفاصيل الحساب في الخطوة التالية.'
+              : '💬 Payment via ShamCash transfer. Account details on the next step.'}
           </p>
+
+          {/* Checkout CTA */}
           <button
             id="cart-checkout-btn"
-            onClick={() => router.push(`/${locale}/checkout`)}
-            aria-label="Proceed to checkout"
-            style={{
-              width: '100%', padding: '16px',
-              background: 'linear-gradient(135deg, #CFA18D, #E3B8A7)',
-              border: 'none', borderRadius: 12,
-              color: '#3A2E2A', fontWeight: 700,
-              fontSize: '1rem', cursor: 'pointer',
-              letterSpacing: '-0.01em', transition: 'opacity 0.2s',
+            className={styles.checkoutBtn}
+            onClick={() => {
+              const qs = new URLSearchParams();
+              if (couponResult) qs.set('couponId', couponResult.couponId);
+              router.push(`/${locale}/checkout${couponResult ? `?${qs.toString()}` : ''}`);
             }}
-            onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
-            onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+            aria-label={isAr ? 'الانتقال إلى الدفع' : 'Proceed to checkout'}
           >
-            Proceed to Checkout →
+            <span>{isAr ? 'الانتقال إلى الدفع' : 'Proceed to Checkout'}</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
+            </svg>
           </button>
-        </div>
+
+          {/* Trust signals */}
+          <div className={styles.trustRow}>
+            {[
+              { icon: '🔒', label: isAr ? 'دفع آمن' : 'Secure Payment' },
+              { icon: '✅', label: isAr ? 'جودة مضمونة' : 'Quality Guarantee' },
+              { icon: '📦', label: isAr ? 'شحن سريع' : 'Fast Delivery' },
+            ].map(({ icon, label }) => (
+              <div key={label} className={styles.trustItem}>
+                <span className={styles.trustIcon}>{icon}</span>
+                <span>{label}</span>
+              </div>
+            ))}
+          </div>
+        </aside>
       </div>
-    </div>
+    </PageWrapper>
   );
 }

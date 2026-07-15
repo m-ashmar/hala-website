@@ -200,6 +200,18 @@ export const t = {
     footerFaq: { en: "FAQ", ar: "الأسئلة الشائعة" },
     footerCopyright: { en: "© 2026 Halahello. All rights reserved.", ar: "© ٢٠٢٦ هالاهيلو. جميع الحقوق محفوظة." },
     footerDesigned: { en: "Designed with ♥", ar: "صُمم بـ ♥" },
+
+    // Auth
+    authLoginTitle: { en: "Login to your account", ar: "تسجيل الدخول إلى حسابك" },
+    authOTPTitle: { en: "Enter Verification Code", ar: "أدخل رمز التحقق" },
+    authLoginSub: { en: "Enter your WhatsApp number to receive a one-time password.", ar: "أدخل رقم الواتساب الخاص بك لاستلام رمز التحقق." },
+    authOTPSub: { en: "We sent a 6-digit code to your WhatsApp number.", ar: "لقد أرسلنا رمزًا مكونًا من 6 أرقام إلى رقم الواتساب الخاص بك." },
+    authPhoneLabel: { en: "WhatsApp Number", ar: "رقم الواتساب" },
+    authPhonePlaceholder: { en: "e.g., +9639xxxxxxxx", ar: "مثال: +9639xxxxxxxx" },
+    authLoading: { en: "Please wait...", ar: "يرجى الانتظار..." },
+    authSendOTP: { en: "Send Code", ar: "إرسال الرمز" },
+    authVerifyBtn: { en: "Verify Code", ar: "تأكيد الرمز" },
+    authResendBtn: { en: "Didn't receive code? Resend", ar: "لم تستلم الرمز؟ أعد الإرسال" },
 };
 
 export function tr(key: keyof typeof t, lang: Lang): string {

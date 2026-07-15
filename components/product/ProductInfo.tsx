@@ -3,18 +3,20 @@
 import { useState } from 'react';
 import { SanityProduct } from '@/sanity/lib/queries';
 import styles from './ProductInfo.module.css';
-import { useLocale } from 'next-intl';
+import { PriceDisplay } from './PriceDisplay';
+import { Badge } from '@/components/ui/Badge';
+import { Divider } from '@/components/ui/Divider';
 
 interface ProductInfoProps {
   product: SanityProduct;
+  locale: string;
 }
 
-export function ProductInfo({ product }: ProductInfoProps) {
-  const locale = useLocale();
+export function ProductInfo({ product, locale }: ProductInfoProps) {
   const isAr = locale === 'ar';
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    details: true, // open by default
+    specs: true,
   });
 
   const toggleSection = (section: string) => {
@@ -26,52 +28,30 @@ export function ProductInfo({ product }: ProductInfoProps) {
   const deliveryInfo = isAr && product.deliveryInfoAr ? product.deliveryInfoAr : product.deliveryInfo;
   const returnPolicy = isAr && product.returnPolicyAr ? product.returnPolicyAr : product.returnPolicy;
 
-  // Format currency
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat(locale, {
-      style: 'currency',
-      currency: 'SYP',
-      maximumFractionDigits: 0,
-    }).format(price);
-  };
-
   return (
     <div className={styles.container}>
       {/* Badges */}
       <div className={styles.badges}>
-        {product.isNew && (
-          <span className={`${styles.badge} ${styles.badgeNew}`}>
-            {isAr ? 'جديد' : 'New'}
-          </span>
-        )}
-        {product.isBestSeller && (
-          <span className={`${styles.badge} ${styles.badgeBestSeller}`}>
-            {isAr ? 'الأكثر مبيعاً' : 'Best Seller'}
-          </span>
-        )}
-        {product.isFeatured && (
-          <span className={`${styles.badge} ${styles.badgeFeatured}`}>
-            {isAr ? 'مميز' : 'Featured'}
-          </span>
-        )}
+        {product.isNew && <Badge variant="accent" size="sm">{isAr ? 'جديد' : 'New'}</Badge>}
+        {product.isBestSeller && <Badge variant="warning" size="sm">{isAr ? 'الأكثر مبيعاً' : 'Best Seller'}</Badge>}
+        {product.isFeatured && <Badge variant="info" size="sm">{isAr ? 'مميز' : 'Featured'}</Badge>}
       </div>
 
       <h1 className={styles.title}>{title}</h1>
 
       <div className={styles.priceContainer}>
-        {product.discountPrice && product.discountPrice < product.price ? (
-          <>
-            <span className={styles.price}>{formatPrice(product.discountPrice)}</span>
-            <span className={styles.originalPrice}>{formatPrice(product.price)}</span>
-          </>
-        ) : (
-          <span className={styles.price}>{formatPrice(product.price)}</span>
-        )}
+        <PriceDisplay
+          price={product.price}
+          discountPrice={product.discountPrice}
+          locale={locale}
+          size="lg"
+          showSavings={true}
+        />
       </div>
 
       {description && <p className={styles.description}>{description}</p>}
 
-      <hr className={styles.divider} />
+      <Divider decorative />
 
       <div className={styles.accordion}>
         {/* Specifications */}
@@ -83,7 +63,11 @@ export function ProductInfo({ product }: ProductInfoProps) {
               aria-expanded={openSections['specs']}
             >
               {isAr ? 'المواصفات' : 'Specifications'}
-              <span className={styles.accordionIcon}>↓</span>
+              <span className={[styles.accordionIcon, openSections['specs'] ? styles.open : ''].join(' ')}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
             </button>
             {openSections['specs'] && (
               <div className={styles.accordionContent}>
@@ -112,12 +96,16 @@ export function ProductInfo({ product }: ProductInfoProps) {
               onClick={() => toggleSection('delivery')}
               aria-expanded={openSections['delivery']}
             >
-              {isAr ? 'التوصيل والشحن' : 'Delivery & Shipping'}
-              <span className={styles.accordionIcon}>↓</span>
+              {isAr ? 'معلومات التوصيل' : 'Delivery Information'}
+              <span className={[styles.accordionIcon, openSections['delivery'] ? styles.open : ''].join(' ')}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
             </button>
             {openSections['delivery'] && (
               <div className={styles.accordionContent}>
-                <p style={{ margin: 0 }}>{deliveryInfo}</p>
+                <p className={styles.textBlock}>{deliveryInfo}</p>
               </div>
             )}
           </div>
@@ -128,15 +116,19 @@ export function ProductInfo({ product }: ProductInfoProps) {
           <div className={styles.accordionItem}>
             <button
               className={styles.accordionHeader}
-              onClick={() => toggleSection('returns')}
-              aria-expanded={openSections['returns']}
+              onClick={() => toggleSection('return')}
+              aria-expanded={openSections['return']}
             >
-              {isAr ? 'سياسة الإرجاع' : 'Return Policy'}
-              <span className={styles.accordionIcon}>↓</span>
+              {isAr ? 'سياسة الاسترجاع' : 'Return Policy'}
+              <span className={[styles.accordionIcon, openSections['return'] ? styles.open : ''].join(' ')}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
             </button>
-            {openSections['returns'] && (
+            {openSections['return'] && (
               <div className={styles.accordionContent}>
-                <p style={{ margin: 0 }}>{returnPolicy}</p>
+                <p className={styles.textBlock}>{returnPolicy}</p>
               </div>
             )}
           </div>

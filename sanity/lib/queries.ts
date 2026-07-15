@@ -74,6 +74,9 @@ export interface SanityHomepageBanner {
   ctaLabel?: string
   ctaLabelAr?: string
   ctaLink?: string
+  ctaLabel2?: string
+  ctaLabelAr2?: string
+  ctaLink2?: string
   backgroundImage: any
   backgroundImageUrl: string
   mobileImage?: any
@@ -106,6 +109,13 @@ export interface SanityFAQ {
   isActive: boolean
 }
 
+export interface SanityHeroStat {
+  value: string
+  valueAr?: string
+  label: string
+  labelAr?: string
+}
+
 export interface SanitySiteSettings {
   _id: string
   siteName: string
@@ -123,6 +133,7 @@ export interface SanitySiteSettings {
   announcementBar?: string
   announcementBarAr?: string
   announcementBarActive: boolean
+  heroStats?: SanityHeroStat[]
 }
 
 export interface SanityShippingSettings {
@@ -249,7 +260,7 @@ export async function getFeaturedPromotions(): Promise<SanityPromotion[]> {
 
 export async function getHomepageBanners(): Promise<SanityHomepageBanner[]> {
   const query = `*[_type == "homepageBanner" && isActive == true] | order(order asc) {
-    _id, title, titleAr, subtitle, subtitleAr, ctaLabel, ctaLabelAr, ctaLink,
+    _id, title, titleAr, subtitle, subtitleAr, ctaLabel, ctaLabelAr, ctaLink, ctaLabel2, ctaLabelAr2, ctaLink2,
     backgroundImage, mobileImage, isActive, order
   }`
   const raw = await client.fetch(query)
@@ -284,7 +295,8 @@ export async function getSiteSettings(): Promise<SanitySiteSettings | null> {
   const query = `*[_type == "siteSettings"][0] {
     _id, siteName, tagline, taglineAr, logo, whatsappNumber,
     instagramUrl, facebookUrl, tiktokUrl, supportEmail,
-    footerText, footerTextAr, announcementBar, announcementBarAr, announcementBarActive
+    footerText, footerTextAr, announcementBar, announcementBarAr, announcementBarActive,
+    heroStats
   }`
   const raw = await client.fetch(query)
   if (!raw) return null
