@@ -42,6 +42,15 @@ export const structure: StructureResolver = (S) =>
         .child(S.documentTypeList('coupon').title('Coupons')),
 
       S.listItem()
+        .title('Custom Requests')
+        .icon(() => '🎨')
+        .child(
+          S.documentTypeList('customRequest')
+            .title('Custom Requests')
+            .defaultOrdering([{ field: '_createdAt', direction: 'desc' }])
+        ),
+
+      S.listItem()
         .title('Users')
         .icon(() => '👥')
         .child(

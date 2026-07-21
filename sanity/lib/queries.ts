@@ -61,7 +61,7 @@ export interface SanityPromotion {
   isFlashSale: boolean
   bannerImage?: any
   bannerImageUrl?: string
-  linkedProducts?: { sanityId: string }[]
+  linkedProducts?: { sanityId: string; title?: string; imageUrl?: string }[]
   linkedCategories?: string[]
 }
 
@@ -231,7 +231,11 @@ const PROMOTION_FIELDS = `
   discountType, discountValue, buyQuantity, getQuantity, couponCode,
   startDate, endDate, isActive, isFeatured, isFlashSale,
   bannerImage,
-  "linkedProducts": linkedProducts[]->{ "sanityId": sanityId.current },
+  "linkedProducts": linkedProducts[]->{
+    "sanityId": sanityId.current,
+    title,
+    image
+  },
   linkedCategories
 `
 
@@ -239,21 +243,47 @@ function enrichPromotion(p: any): SanityPromotion {
   return {
     ...p,
     bannerImageUrl: p.bannerImage ? urlFor(p.bannerImage).width(1600).auto('format').url() : undefined,
+    linkedProducts: p.linkedProducts?.map((lp: any) => ({
+      sanityId: lp.sanityId,
+      title: lp.title,
+      imageUrl: lp.image ? urlFor(lp.image).width(120).height(120).auto('format').url() : undefined,
+    })) ?? undefined,
   }
 }
 
 export async function getActivePromotions(): Promise<SanityPromotion[]> {
-  const now = new Date().toISOString()
-  const query = `*[_type == "promotion" && isActive == true && startDate <= $now && endDate >= $now] { ${PROMOTION_FIELDS} } | order(endDate asc)`
-  const raw = await client.fetch(query, { now })
+  const now = new Date()
+  const today = now.toISOString()
+  // Compare endDate against start-of-today (midnight UTC), so a promotion with
+  // endDate = "2026-07-20T00:00:00Z" stays active through all of July 20th.
+  const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
+  const query = `*[_type == "promotion" && isActive == true && startDate <= $now && endDate >= $startOfDay] { ${PROMOTION_FIELDS} } | order(endDate asc)`
+  const raw = await client.fetch(query, { now: today, startOfDay })
   return raw.map(enrichPromotion)
 }
 
 export async function getFeaturedPromotions(): Promise<SanityPromotion[]> {
-  const now = new Date().toISOString()
-  const query = `*[_type == "promotion" && isActive == true && isFeatured == true && startDate <= $now && endDate >= $now] { ${PROMOTION_FIELDS} } | order(endDate asc)`
-  const raw = await client.fetch(query, { now })
+  const now = new Date()
+  const today = now.toISOString()
+  // Compare endDate against start-of-today so promotions set to end "today" stay active all day
+  const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
+  const query = `*[_type == "promotion" && isActive == true && isFeatured == true && startDate <= $now && endDate >= $startOfDay] { ${PROMOTION_FIELDS} } | order(endDate asc)`
+  const raw = await client.fetch(query, { now: today, startOfDay })
   return raw.map(enrichPromotion)
+}
+
+/**
+ * Returns a single active promotion by its coupon code.
+ * Used by the validate-coupon API to determine product/category scope.
+ */
+export async function getPromotionByCouponCode(code: string): Promise<SanityPromotion | null> {
+  const now = new Date()
+  const today = now.toISOString()
+  const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
+  const query = `*[_type == "promotion" && isActive == true && couponCode == $code && startDate <= $now && endDate >= $startOfDay][0] { ${PROMOTION_FIELDS} }`
+  const raw = await client.fetch(query, { code: code.trim().toUpperCase(), now: today, startOfDay })
+  if (!raw) return null
+  return enrichPromotion(raw)
 }
 
 // ── Homepage & Content Queries ────────────────────────────────────────────

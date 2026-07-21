@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getHomepageBanners } from '@/sanity/lib/queries';
 
+// Cache banners for 60 seconds — they change more often than other content
+export const revalidate = 60;
+
 export async function GET() {
   try {
     const banners = await getHomepageBanners();

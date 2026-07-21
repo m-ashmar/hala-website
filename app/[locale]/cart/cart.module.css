@@ -532,3 +532,33 @@
 .trustIcon {
   font-size: 0.85rem;
 }
+
+/* ── Discount indicators (scoped coupons) ── */
+.itemRowDiscounted {
+  border-color: rgba(52, 211, 153, 0.25) !important;
+  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.1);
+}
+
+.discountBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 2px 7px;
+  letter-spacing: 0.03em;
+}
+
+.scopeLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  color: rgba(52, 211, 153, 0.8);
+  font-style: italic;
+}
+

@@ -1,5 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import styles from './OfferCard.module.css';
 import { CountdownTimer } from './CountdownTimer';
 import { CopyButton } from './CopyButton';
@@ -19,6 +20,10 @@ export interface OfferCardPromotion {
   endDate: string;
   isActive: boolean;
   bannerImageUrl?: string;
+  /** Products this offer is restricted to (empty = all products) */
+  linkedProducts?: { sanityId: string; title?: string; imageUrl?: string }[];
+  /** Categories this offer is restricted to (empty = all categories) */
+  linkedCategories?: string[];
 }
 
 const PALETTE = [
@@ -48,6 +53,27 @@ export function OfferCard({ promotion, index = 0, locale = 'en' }: OfferCardProp
       : promotion.discountType === 'FIXED'
       ? `${promotion.discountValue.toLocaleString()} ${CURRENCY} OFF`
       : isAr ? 'اشترِ والحصل على مجاني' : 'Buy X Get Y';
+
+  // Determine scope
+  const hasLinkedProducts = (promotion.linkedProducts?.length ?? 0) > 0;
+  const hasLinkedCategories = (promotion.linkedCategories?.length ?? 0) > 0;
+  const isScoped = hasLinkedProducts || hasLinkedCategories;
+
+  const scopeLabel = hasLinkedCategories
+    ? (isAr ? 'يُطبَّق على: ' : 'Applies to: ') +
+      promotion.linkedCategories!
+        .map(c => c.charAt(0).toUpperCase() + c.slice(1))
+        .join(', ')
+    : hasLinkedProducts
+    ? (isAr
+        ? `يُطبَّق على ${promotion.linkedProducts!.length} منتج محدد`
+        : `Applies to ${promotion.linkedProducts!.length} selected product${promotion.linkedProducts!.length > 1 ? 's' : ''}`)
+    : null;
+
+  // Build products URL filter for the "View products" link
+  const productsHref = promotion.couponCode
+    ? `/${locale}/products?coupon=${encodeURIComponent(promotion.couponCode)}`
+    : `/${locale}/products`;
 
   return (
     <article
@@ -87,6 +113,51 @@ export function OfferCard({ promotion, index = 0, locale = 'en' }: OfferCardProp
         {/* Title + description */}
         <h3 className={styles.title}>{title}</h3>
         {description && <p className={styles.description}>{description}</p>}
+
+        {/* Scope tag — show which products/categories apply */}
+        {isScoped && scopeLabel && (
+          <div className={styles.scopeTag}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <circle cx="12" cy="12" r="10" /><path d="M12 8v4l3 3" />
+            </svg>
+            {scopeLabel}
+          </div>
+        )}
+
+        {/* Linked product thumbnails (up to 4) */}
+        {hasLinkedProducts && (
+          <div className={styles.linkedProducts}>
+            {promotion.linkedProducts!.slice(0, 4).map((p) => (
+              <div key={p.sanityId} className={styles.linkedProductThumb} title={p.title}>
+                {p.imageUrl ? (
+                  <Image
+                    src={p.imageUrl}
+                    alt={p.title ?? p.sanityId}
+                    fill
+                    sizes="40px"
+                    style={{ objectFit: 'cover' }}
+                  />
+                ) : (
+                  <div className={styles.linkedProductPlaceholder}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                      <circle cx="8.5" cy="8.5" r="1.5" />
+                      <path d="M21 15l-5-5L5 21" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            ))}
+            {promotion.linkedProducts!.length > 4 && (
+              <div className={styles.linkedProductMore}>
+                +{promotion.linkedProducts!.length - 4}
+              </div>
+            )}
+            <Link href={productsHref} className={styles.viewProductsLink}>
+              {isAr ? 'عرض المنتجات ←' : 'View products →'}
+            </Link>
+          </div>
+        )}
 
         {/* Coupon code */}
         {promotion.couponCode && (

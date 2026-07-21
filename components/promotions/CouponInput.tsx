@@ -18,6 +18,8 @@ export interface CouponInputProps {
   appliedCode?: string;
   locale?: string;
   disabled?: boolean;
+  /** Cart subtotal to check minimum order requirements. Defaults to 0. */
+  orderAmount?: number;
 }
 
 export function CouponInput({
@@ -26,6 +28,7 @@ export function CouponInput({
   appliedCode,
   locale = 'en',
   disabled = false,
+  orderAmount = 0,
 }: CouponInputProps) {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,7 +50,7 @@ export function CouponInput({
       const res = await fetch('/api/promotions/validate-coupon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: trimmed }),
+        body: JSON.stringify({ code: trimmed, orderAmount }),
       });
       const data: CouponResult & { error?: string } = await res.json();
 

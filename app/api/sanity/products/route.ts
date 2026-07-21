@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getAllProducts } from '@/sanity/lib/queries';
 
+// Cache product listings for 5 minutes
+export const revalidate = 300;
+
 export async function GET() {
   try {
     const products = await getAllProducts();

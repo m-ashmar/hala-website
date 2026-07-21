@@ -5,14 +5,18 @@ import {
   sendCustomRequestConfirmation,
   sendCustomRequestNotificationToAdmin,
 } from '@/lib/services/email.service';
+import { syncCustomRequestToSanity } from '@/lib/services/sanity-sync.service';
+import { auth } from '@/auth';
 
 const customRequestSchema = z.object({
+  title: z.string().max(100).optional(),
   name: z.string().min(2, 'Name is required').max(100),
   email: z.string().email('Invalid email address'),
   color: z.string().max(100).optional(),
   occasion: z.string().max(200).optional(),
   message: z.string().min(10, 'Please describe your request in more detail').max(3000),
   imageUrls: z.array(z.string().url()).max(5).optional(),
+  requestedQuantity: z.number().int().min(1).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -27,7 +31,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { name, email, color, occasion, message, imageUrls = [] } = parsed.data;
+    const { title, name, email, color, occasion, message, imageUrls = [], requestedQuantity } = parsed.data;
+
+    // Ensure user is authenticated
+    const session = await auth();
+    const userId = session?.user?.id;
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'You must be logged in to submit a custom request.' },
+        { status: 401 }
+      );
+    }
 
     // Build the full details string from all fields
     const details = [
@@ -40,16 +54,33 @@ export async function POST(req: NextRequest) {
 
     // Persist to database
     const customRequest = await createCustomRequest({
+      userId,
+      title: title || 'Custom Request',
       name,
       email,
       details,
       imageUrls,
+      requestedQuantity,
     });
 
-    // Send emails concurrently
+    // Send emails and sync to Sanity concurrently
     await Promise.allSettled([
       sendCustomRequestConfirmation(name, email, details),
       sendCustomRequestNotificationToAdmin(name, email, details, imageUrls),
+      syncCustomRequestToSanity({
+        id: customRequest.id,
+        name: customRequest.name,
+        email: customRequest.email,
+        title: customRequest.title,
+        details: customRequest.details,
+        imageUrls: customRequest.imageUrls,
+        requestedQuantity: customRequest.requestedQuantity,
+        status: customRequest.status,
+        quotePrice: customRequest.quotePrice,
+        currency: customRequest.currency,
+        estimatedDays: customRequest.estimatedDays,
+        adminNotes: customRequest.adminNotes,
+      }),
     ]);
 
     return NextResponse.json(

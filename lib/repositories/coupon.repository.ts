@@ -79,6 +79,28 @@ export async function createCoupon(input: CreateCouponInput) {
 }
 
 /**
+ * Upserts a coupon by its code (creates if not exists, updates if exists).
+ * Primarily used by the Sanity webhook for promotion syncing.
+ */
+export async function upsertCouponByCode(input: CreateCouponInput) {
+  const codeUpper = input.code.toUpperCase()
+  const data = {
+    description: input.description ?? null,
+    discountType: input.discountType,
+    discountValue: input.discountValue,
+    minOrderAmount: input.minOrderAmount ?? null,
+    maxUses: input.maxUses ?? null,
+    expiresAt: input.expiresAt ?? null,
+    isActive: input.isActive ?? true,
+  }
+  return prisma.coupon.upsert({
+    where: { code: codeUpper },
+    create: { code: codeUpper, ...data },
+    update: data,
+  })
+}
+
+/**
  * Updates a coupon by ID.
  * Returns the updated coupon.
  */

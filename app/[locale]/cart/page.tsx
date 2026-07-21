@@ -24,8 +24,12 @@ interface CouponResult {
   code: string;
   discountType: 'PERCENTAGE' | 'FIXED';
   discountValue: number;
+  eligibleAmount: number;
   discountAmount: number;
+  fullSubtotal: number;
   finalAmount: number;
+  eligibleSanityIds: string[];
+  scopeLabel: string | null;
   description: string | null;
 }
 
@@ -52,7 +56,16 @@ export default function CartPage() {
       const res = await fetch('/api/promotions/validate-coupon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, orderAmount: subtotal() }),
+        body: JSON.stringify({
+          code,
+          // Send full item context so the API can apply product/category scope
+          items: items.map((i) => ({
+            sanityId: i.sanityId,
+            category: i.category ?? inferCategory(i.sanityId),
+            price: i.price,
+            quantity: i.quantity,
+          })),
+        }),
       });
       const data = await res.json();
       if (data.valid) {
@@ -74,6 +87,7 @@ export default function CartPage() {
   };
 
   const finalAmount = couponResult ? couponResult.finalAmount : subtotal();
+  const eligibleSet = new Set(couponResult?.eligibleSanityIds ?? []);
 
   // ── Empty State ─────────────────────────────────────────────────────────────
   if (items.length === 0) {
@@ -119,78 +133,90 @@ export default function CartPage() {
 
           {/* Cart rows */}
           <div className={styles.itemsList}>
-            {items.map((item) => (
-              <div key={item.id} className={styles.itemRow}>
-                {/* Thumbnail */}
-                <div className={styles.thumb}>
-                  {item.imageUrl ? (
-                    <Image
-                      src={item.imageUrl}
-                      alt={item.name ?? 'Product'}
-                      fill
-                      sizes="88px"
-                      style={{ objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <div className={styles.thumbPlaceholder}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
-                        <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" />
-                      </svg>
-                    </div>
-                  )}
-                </div>
-
-                {/* Info */}
-                <div className={styles.itemInfo}>
-                  <p className={styles.itemName}>
-                    {item.name ?? item.sanityId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                  </p>
-                  {item.customization && Object.keys(item.customization).length > 0 && (
-                    <div className={styles.customTags}>
-                      {Object.entries(item.customization).map(([k, v]) => (
-                        <span key={k} className={styles.customTag}>{k}: {v}</span>
-                      ))}
-                    </div>
-                  )}
-                  {/* Unit price on mobile */}
-                  <p className={styles.unitPrice}>{fmt(item.price, locale)}</p>
-                </div>
-
-                {/* Quantity stepper */}
-                <div className={styles.stepper}>
-                  <button
-                    className={styles.stepBtn}
-                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                    aria-label={`Decrease quantity of ${item.name ?? item.sanityId}`}
-                  >−</button>
-                  <span className={styles.stepQty}>{item.quantity}</span>
-                  <button
-                    className={styles.stepBtn}
-                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                    aria-label={`Increase quantity of ${item.name ?? item.sanityId}`}
-                  >+</button>
-                </div>
-
-                {/* Line total */}
-                <div className={styles.lineTotal}>
-                  <span className={styles.lineTotalAmt}>{fmt(item.price * item.quantity, locale)}</span>
-                  {item.quantity > 1 && (
-                    <span className={styles.lineTotalUnit}>{fmt(item.price, locale)} {isAr ? 'للقطعة' : 'each'}</span>
-                  )}
-                </div>
-
-                {/* Remove */}
-                <button
-                  className={styles.removeBtn}
-                  onClick={() => removeItem(item.id)}
-                  aria-label={`Remove ${item.name ?? item.sanityId} from cart`}
+            {items.map((item) => {
+              const isDiscounted = couponResult !== null && eligibleSet.has(item.sanityId);
+              return (
+                <div
+                  key={item.id}
+                  className={[styles.itemRow, isDiscounted ? styles.itemRowDiscounted : ''].filter(Boolean).join(' ')}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+                  {/* Thumbnail */}
+                  <div className={styles.thumb}>
+                    {item.imageUrl ? (
+                      <Image
+                        src={item.imageUrl}
+                        alt={item.name ?? 'Product'}
+                        fill
+                        sizes="88px"
+                        style={{ objectFit: 'cover' }}
+                      />
+                    ) : (
+                      <div className={styles.thumbPlaceholder}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1">
+                          <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><path d="M21 15l-5-5L5 21" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div className={styles.itemInfo}>
+                    <p className={styles.itemName}>
+                      {item.name ?? item.sanityId.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    </p>
+                    {item.customization && Object.keys(item.customization).length > 0 && (
+                      <div className={styles.customTags}>
+                        {Object.entries(item.customization).map(([k, v]) => (
+                          <span key={k} className={styles.customTag}>{k}: {v}</span>
+                        ))}
+                      </div>
+                    )}
+                    {/* Discount indicator */}
+                    {isDiscounted && (
+                      <span className={styles.discountBadge}>
+                        ✓ {isAr ? 'خصم مُطبَّق' : 'Discount applied'}
+                      </span>
+                    )}
+                    {/* Unit price on mobile */}
+                    <p className={styles.unitPrice}>{fmt(item.price, locale)}</p>
+                  </div>
+
+                  {/* Quantity stepper */}
+                  <div className={styles.stepper}>
+                    <button
+                      className={styles.stepBtn}
+                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      aria-label={`Decrease quantity of ${item.name ?? item.sanityId}`}
+                    >−</button>
+                    <span className={styles.stepQty}>{item.quantity}</span>
+                    <button
+                      className={styles.stepBtn}
+                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      aria-label={`Increase quantity of ${item.name ?? item.sanityId}`}
+                    >+</button>
+                  </div>
+
+                  {/* Line total */}
+                  <div className={styles.lineTotal}>
+                    <span className={styles.lineTotalAmt}>{fmt(item.price * item.quantity, locale)}</span>
+                    {item.quantity > 1 && (
+                      <span className={styles.lineTotalUnit}>{fmt(item.price, locale)} {isAr ? 'للقطعة' : 'each'}</span>
+                    )}
+                  </div>
+
+                  {/* Remove */}
+                  <button
+                    className={styles.removeBtn}
+                    onClick={() => removeItem(item.id)}
+                    aria-label={`Remove ${item.name ?? item.sanityId} from cart`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            })}
           </div>
         </section>
 
@@ -206,10 +232,17 @@ export default function CartPage() {
             </div>
 
             {couponResult && (
-              <div className={[styles.summaryRow, styles.discountRow].join(' ')}>
-                <span>{isAr ? 'خصم الكوبون' : 'Coupon discount'}</span>
-                <span className={styles.discountAmt}>− {fmt(couponResult.discountAmount, locale)}</span>
-              </div>
+              <>
+                <div className={[styles.summaryRow, styles.discountRow].join(' ')}>
+                  <span>
+                    {isAr ? 'خصم الكوبون' : 'Coupon discount'}
+                    {couponResult.scopeLabel && (
+                      <span className={styles.scopeLabel}> · {couponResult.scopeLabel}</span>
+                    )}
+                  </span>
+                  <span className={styles.discountAmt}>− {fmt(couponResult.discountAmount, locale)}</span>
+                </div>
+              </>
             )}
 
             <div className={styles.shippingRow}>
@@ -263,6 +296,9 @@ export default function CartPage() {
                       ? `${couponResult.discountValue}% off`
                       : `− ${fmt(couponResult.discountAmount, locale)}`}
                   </span>
+                  {couponResult.scopeLabel && (
+                    <span className={styles.scopeLabel}>{couponResult.scopeLabel}</span>
+                  )}
                 </div>
                 <button onClick={removeCoupon} className={styles.couponRemove}>
                   {isAr ? 'إزالة' : 'Remove'}
@@ -295,7 +331,11 @@ export default function CartPage() {
             className={styles.checkoutBtn}
             onClick={() => {
               const qs = new URLSearchParams();
-              if (couponResult) qs.set('couponId', couponResult.couponId);
+              if (couponResult) {
+                qs.set('couponId', couponResult.couponId);
+                qs.set('discountAmount', String(couponResult.discountAmount));
+                qs.set('finalAmount', String(couponResult.finalAmount));
+              }
               router.push(`/${locale}/checkout${couponResult ? `?${qs.toString()}` : ''}`);
             }}
             aria-label={isAr ? 'الانتقال إلى الدفع' : 'Proceed to checkout'}
@@ -323,4 +363,15 @@ export default function CartPage() {
       </div>
     </PageWrapper>
   );
+}
+
+/**
+ * Infer product category from its Sanity slug as a fallback.
+ * Products with slugs starting with "hijab" → "hijab", "plexi" → "plexi".
+ */
+function inferCategory(sanityId: string): string {
+  const slug = sanityId.toLowerCase();
+  if (slug.startsWith('hijab')) return 'hijab';
+  if (slug.startsWith('plexi')) return 'plexi';
+  return 'other';
 }

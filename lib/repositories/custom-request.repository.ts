@@ -5,8 +5,10 @@ export interface CreateCustomRequestData {
   userId?: string;
   name: string;
   email: string;
+  title?: string;
   details: string;
   imageUrls?: string[];
+  requestedQuantity?: number;
 }
 
 export async function createCustomRequest(data: CreateCustomRequestData) {
@@ -15,8 +17,10 @@ export async function createCustomRequest(data: CreateCustomRequestData) {
       userId: data.userId,
       name: data.name,
       email: data.email,
+      title: data.title ?? 'Custom Request',
       details: data.details,
       imageUrls: data.imageUrls ?? [],
+      requestedQuantity: data.requestedQuantity ?? 1,
       status: CustomRequestStatus.SUBMITTED,
     },
   });
@@ -36,5 +40,19 @@ export async function updateCustomRequestStatus(id: string, status: CustomReques
   return prisma.customRequest.update({
     where: { id },
     data: { status },
+  });
+}
+
+export interface UpdateCustomRequestData {
+  status?: CustomRequestStatus;
+  quotePrice?: number;
+  estimatedDays?: number;
+  adminNotes?: string;
+}
+
+export async function updateCustomRequestFromSanity(id: string, data: UpdateCustomRequestData) {
+  return prisma.customRequest.update({
+    where: { id },
+    data,
   });
 }

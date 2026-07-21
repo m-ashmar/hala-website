@@ -13,7 +13,7 @@ export interface ProductCardProduct {
   _id: string;
   title: string;
   titleAr?: string;
-  slug: { current: string };
+  slug?: { current: string };
   price: number;
   discountPrice?: number;
   mainImageUrl?: string;
@@ -44,7 +44,7 @@ export function ProductCard({ product, locale = 'en', priority = false }: Produc
   const [hovered, setHovered] = useState(false);
 
   const title = isAr && product.titleAr ? product.titleAr : product.title;
-  const href = `/${locale}/products/${product.slug.current}`;
+  const href = `/${locale}/products/${product.slug?.current || product._id}`;
 
   const hasDiscount =
     product.discountPrice != null && product.discountPrice < product.price;

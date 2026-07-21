@@ -21,6 +21,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import Stripe from 'stripe';
+import { auth } from '@/auth';
+import { randomUUID } from 'crypto';
 import {
   createPendingOrder,
   generateReferenceCode,
@@ -29,6 +31,7 @@ import {
   type ValidatedOrderItem,
 } from '@/lib/repositories/order.repository';
 import { syncOrderToSanity } from '@/lib/services/sanity-sync.service';
+import { createCheckoutDraft, markDraftStripeSession } from '@/lib/repositories/checkout-draft.repository';
 
 // Initialize Stripe (optional chaining for safety if key is missing)
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
@@ -57,6 +60,7 @@ const checkoutSchema = z.object({
     note: z.string().max(500).optional(),
   }),
   paymentMethod: z.enum(['shamcash', 'stripe']),
+  couponId: z.string().optional(),
 });
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -74,6 +78,10 @@ export async function POST(req: NextRequest) {
     }
 
     const { items: cartItems, customer, paymentMethod } = parsed.data;
+
+    // Fix Bug 2: Get the authenticated user's ID
+    const session = await auth();
+    const userId = session?.user?.id;
 
     // 2. Fetch authoritative prices and stock from DB in a single query
     const productIds = cartItems.map((i) => i.productSyncId);
@@ -124,12 +132,43 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Calculate total server-side
-    const totalAmount = validatedItems.reduce(
+    const rawSubtotal = validatedItems.reduce(
       (sum, item) => sum + item.priceAtPurchase * item.quantity,
       0
     );
 
-    // 5. Generate reference code and set expiry
+    // 4b. Apply coupon discount server-side (re-validate to prevent tampering)
+    let discountAmount = 0;
+    let couponId: string | undefined = parsed.data.couponId;
+
+    if (couponId) {
+      const coupon = await prisma.coupon.findFirst({
+        where: {
+          id: couponId,
+          isActive: true,
+          OR: [{ expiresAt: null }, { expiresAt: { gte: new Date() } }],
+        },
+      });
+
+      if (coupon && (coupon.maxUses === null || coupon.usedCount < coupon.maxUses)) {
+        // Compute scoped discount using the validated item list
+        // We use the full subtotal here because without category info in the
+        // order payload we trust the coupon was already scope-validated in the cart.
+        // For extra security, FIXED discounts are capped at the cart total.
+        if (coupon.discountType === 'PERCENTAGE') {
+          discountAmount = Math.round((rawSubtotal * Number(coupon.discountValue)) / 100);
+        } else {
+          discountAmount = Math.min(Number(coupon.discountValue), rawSubtotal);
+        }
+      } else {
+        // Coupon invalid/expired at order time — ignore it silently
+        couponId = undefined;
+        discountAmount = 0;
+      }
+    }
+
+    const totalAmount = Math.max(0, rawSubtotal - discountAmount);
+
     const referenceCode = generateReferenceCode();
     const timeoutMinutes = parseInt(
       process.env.SHAMCASH_POLL_TIMEOUT_MINUTES ?? '60',
@@ -138,23 +177,7 @@ export async function POST(req: NextRequest) {
     const expiresAt = new Date(Date.now() + timeoutMinutes * 60 * 1000);
     const currency = process.env.NEXT_PUBLIC_CURRENCY ?? 'SYP';
 
-    // 6. Create the pending order in DB
-    const order = await createPendingOrder({
-      customer,
-      items: validatedItems,
-      totalAmount,
-      referenceCode,
-      currency,
-      expiresAt,
-    });
-
-    // 6a. Sync new order to Sanity (Postgres → Sanity, best-effort, no await block)
-    // We fetch the full order so the sync payload includes items + productSync.
-    void getOrderWithItemsById(order.id).then((full) => {
-      if (full) return syncOrderToSanity(full);
-    });
-
-    // 7. Handle Stripe payment method
+    // 6. Handle Stripe payment method (New Draft Flow)
     if (paymentMethod === 'stripe') {
       if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY.startsWith('sk_test_...')) {
         return NextResponse.json(
@@ -163,54 +186,98 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Convert SYP/Cart currency to a valid Stripe currency (e.g. AED or USD for tests)
-      // Since SYP isn't fully supported by Stripe globally, we map to AED or USD for this demo.
-      // We will use 'usd' for maximum compatibility in test mode.
-      const stripeCurrency = 'usd'; 
-      // For a real integration, convert totalAmount from SYP to USD, or if totalAmount is already USD/AED use that.
-      // Assuming for demo we just pass the amount as USD cents (Stripe expects smallest currency unit).
-      // Let's divide by 10 or just use amount directly for test. E.g. 85 SYP -> $0.85 -> 85 cents.
-      const amountInCents = Math.round(totalAmount * 100); 
+      const checkoutToken = randomUUID();
 
-      // Build Stripe Line Items
+      // Save draft BEFORE going to Stripe
+      const draft = await createCheckoutDraft({
+        checkoutToken,
+        userId,
+        customerName: customer.name,
+        customerEmail: customer.email,
+        customerPhone: customer.phone,
+        customerNote: customer.note,
+        items: validatedItems,
+        couponId,
+        discountAmount,
+        subtotal: rawSubtotal,
+        totalAmount,
+        currency,
+        expiresAt,
+      });
+
+      const stripeCurrency = 'usd'; // Adjust to real currency
       const stripeLineItems = validatedItems.map(item => ({
         price_data: {
           currency: stripeCurrency,
           product_data: {
-            name: item.sanityId,
+            name: item.snapshotTitle ?? item.sanityId,
           },
-          // Stripe requires amounts in cents
           unit_amount: Math.round(item.priceAtPurchase * 100),
         },
         quantity: item.quantity,
       }));
 
-      // Create Stripe Checkout Session
-      const session = await stripe.checkout.sessions.create({
+      let stripeDiscounts: { coupon: string }[] | undefined;
+      if (discountAmount > 0) {
+        const discountInCents = Math.round(discountAmount * 100);
+        try {
+          const stripeCoupon = await stripe.coupons.create({
+            amount_off: discountInCents,
+            currency: stripeCurrency,
+            duration: 'once',
+            name: couponId ? `Order discount (${couponId.slice(0, 8)})` : 'Order discount',
+          });
+          stripeDiscounts = [{ coupon: stripeCoupon.id }];
+        } catch (couponErr) {
+          console.warn('[stripe] Failed to create Stripe discount coupon:', couponErr);
+        }
+      }
+
+      // Create Session with ONLY the token in metadata
+      const stripeSession = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: stripeLineItems,
         mode: 'payment',
-        success_url: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/en/checkout/success?orderId=${order.id}`,
+        // Redirect to success page WITH the session ID so it can fetch the order
+        success_url: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/en/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/en/checkout`,
         customer_email: customer.email,
-        client_reference_id: order.id,
-        metadata: {
-          orderId: order.id,
+        client_reference_id: draft.id, // optional, links back to draft
+        metadata: { 
+          checkoutToken,
+          userId: userId ?? 'guest' 
         },
+        ...(stripeDiscounts && { discounts: stripeDiscounts }),
       });
 
-      // Save Stripe Session ID to DB
-      await updateOrderStripeSession(order.id, session.id);
+      // Update draft with session ID
+      await markDraftStripeSession(draft.id, stripeSession.id);
 
       return NextResponse.json(
         {
-          orderId: order.id,
           paymentMethod: 'stripe',
-          url: session.url,
+          url: stripeSession.url,
         },
         { status: 201 }
       );
     }
+
+    // 7. Handle ShamCash payment method (Legacy Flow - Creates Order Immediately)
+    const order = await createPendingOrder({
+      customer,
+      items: validatedItems,
+      totalAmount,
+      referenceCode,
+      currency,
+      expiresAt,
+      userId,
+      couponId,
+      discountAmount,
+    });
+
+    void getOrderWithItemsById(order.id).then((full) => {
+      if (full) return syncOrderToSanity(full);
+    });
 
     // 8. Handle ShamCash payment method
     return NextResponse.json(
@@ -219,6 +286,7 @@ export async function POST(req: NextRequest) {
         paymentMethod: 'shamcash',
         referenceCode,
         totalAmount,
+        discountAmount,
         currency,
         expiresAt: expiresAt.toISOString(),
         paymentDisplayNumber:

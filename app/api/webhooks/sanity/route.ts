@@ -29,8 +29,13 @@ import {
   updateCoupon,
   deleteCoupon,
   getCouponById,
+  getCouponByCode,
+  upsertCouponByCode,
 } from '@/lib/repositories/coupon.repository';
-import { OrderStatus, DiscountType } from '@prisma/client';
+import {
+  updateCustomRequestFromSanity,
+} from '@/lib/repositories/custom-request.repository';
+import { OrderStatus, DiscountType, CustomRequestStatus } from '@prisma/client';
 import { logger } from '@/lib/logger';
 
 const secret = process.env.SANITY_WEBHOOK_SECRET;
@@ -48,10 +53,18 @@ function isDiscountType(value: unknown): value is DiscountType {
   return value === 'PERCENTAGE' || value === 'FIXED';
 }
 
+function isCustomRequestStatus(value: unknown): value is CustomRequestStatus {
+  return typeof value === 'string' &&
+    ['SUBMITTED', 'QUOTED', 'PAID', 'IN_PRODUCTION', 'SHIPPED', 'CANCELLED']
+      .includes(value);
+}
+
 // ── Handlers per document type ────────────────────────────────────────────────
 
 async function handleProductEvent(payload: Record<string, unknown>) {
-  const sanityId = payload._id as string;
+  // `payload.sanityId` is the slug (e.g. "pink-hijab") set by the GROQ projection.
+  // `payload._id` is the raw Sanity document ID — NOT what we store in Postgres.
+  const sanityId = (payload.sanityId as string | undefined) || (payload._id as string);
 
   if (payload.operation === 'delete') {
     await deleteProductBySanityId(sanityId);
@@ -223,6 +236,128 @@ async function handleCouponEvent(payload: Record<string, unknown>) {
   );
 }
 
+// ── Promotion Handler ───────────────────────────────────────────────────────
+
+async function handlePromotionEvent(payload: Record<string, unknown>) {
+  /**
+   * Promotions in Sanity may contain a `couponCode`. If they do, we must sync
+   * that coupon into PostgreSQL so it can be validated during checkout.
+   */
+  const operation = payload.operation as string | undefined;
+  const code = payload.couponCode;
+
+  if (!code || typeof code !== 'string') {
+    // Promotion doesn't have a coupon code; nothing to sync to Postgres.
+    return NextResponse.json(
+      { success: true, message: 'Promotion has no coupon code; ignored' },
+      { status: 200 }
+    );
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────
+  if (operation === 'delete') {
+    // Deactivate the coupon if it exists
+    const existing = await getCouponByCode(code);
+    if (existing) {
+      await updateCoupon(existing.id, { isActive: false });
+      logger.info({ code }, '[Webhook/Sanity] Promotion deleted; coupon deactivated in Postgres');
+      return NextResponse.json(
+        { success: true, message: `Coupon ${code} deactivated` },
+        { status: 200 }
+      );
+    }
+    return NextResponse.json(
+      { success: true, message: 'No Postgres coupon found to deactivate' },
+      { status: 200 }
+    );
+  }
+
+  // ── Create / Update ───────────────────────────────────────────────────────
+  const discountType = payload.discountType;
+  const discountValue = payload.discountValue;
+
+  if (!isDiscountType(discountType)) {
+    // We don't support BUY_X_GET_Y in Postgres coupons yet.
+    return NextResponse.json(
+      { success: false, message: `Unsupported discountType: ${discountType}` },
+      { status: 400 }
+    );
+  }
+
+  if (typeof discountValue !== 'number') {
+    return NextResponse.json(
+      { success: false, message: 'Missing or invalid discountValue in promotion payload' },
+      { status: 400 }
+    );
+  }
+
+  await upsertCouponByCode({
+    code,
+    description: typeof payload.title === 'string' ? payload.title : null,
+    discountType,
+    discountValue,
+    expiresAt: typeof payload.endDate === 'string' ? new Date(payload.endDate) : null,
+    isActive: typeof payload.isActive === 'boolean' ? payload.isActive : true,
+  });
+
+  logger.info({ code }, '[Webhook/Sanity] Promotion coupon upserted in Postgres');
+  return NextResponse.json(
+    { success: true, message: `Promotion coupon ${code} synced` },
+    { status: 200 }
+  );
+}
+
+// ── Custom Request Handler ──────────────────────────────────────────────────
+
+async function handleCustomRequestEvent(payload: Record<string, unknown>) {
+  const pgId = payload.prismaId as string | undefined;
+
+  if (!pgId) {
+    return NextResponse.json(
+      { success: false, message: 'Missing prismaId in customRequest webhook payload' },
+      { status: 400 }
+    );
+  }
+
+  const updateData: any = {};
+
+  if (payload.status) {
+    if (isCustomRequestStatus(payload.status)) {
+      updateData.status = payload.status;
+    } else {
+      return NextResponse.json(
+        { success: false, message: `Invalid status: ${payload.status}` },
+        { status: 400 }
+      );
+    }
+  }
+
+  if (typeof payload.quotePrice === 'number') {
+    updateData.quotePrice = payload.quotePrice;
+  }
+  if (typeof payload.estimatedDays === 'number') {
+    updateData.estimatedDays = payload.estimatedDays;
+  }
+  if (typeof payload.adminNotes === 'string') {
+    updateData.adminNotes = payload.adminNotes;
+  }
+
+  try {
+    await updateCustomRequestFromSanity(pgId, updateData);
+    logger.info({ pgId }, '[Webhook/Sanity] CustomRequest updated from Sanity');
+    return NextResponse.json(
+      { success: true, message: `CustomRequest ${pgId} synced` },
+      { status: 200 }
+    );
+  } catch (err) {
+    logger.error({ pgId, err }, '[Webhook/Sanity] CustomRequest update failed');
+    return NextResponse.json(
+      { success: false, message: 'CustomRequest update failed' },
+      { status: 500 }
+    );
+  }
+}
+
 // ── Main route handler ────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
@@ -261,6 +396,10 @@ export async function POST(req: NextRequest) {
         return await handleOrderEvent(payload);
       case 'coupon':
         return await handleCouponEvent(payload);
+      case 'promotion':
+        return await handlePromotionEvent(payload);
+      case 'customRequest':
+        return await handleCustomRequestEvent(payload);
       default:
         // Unknown type — acknowledge without processing
         return NextResponse.json(

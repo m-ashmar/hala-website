@@ -145,11 +145,11 @@
 - [x] Apply premium hover effects, page transitions, micro-animations
 
 ## Phase 12 — Performance Optimization
-- [ ] Convert homepage to Server Component
-- [ ] Add `generateStaticParams` and `generateMetadata` to product pages
-- [ ] Add Suspense boundaries + Skeleton fallbacks
-- [ ] Lazy load heavy components
-- [ ] Optimize Sanity queries
+- [x] Convert homepage to Server Component
+- [x] Add `generateStaticParams` and `generateMetadata` to product pages
+- [x] Add Suspense boundaries + Skeleton fallbacks
+- [x] Lazy load heavy components
+- [x] Optimize Sanity queries
 
 ## Phase 13 — Security Hardening
 - [ ] Add Zod validation to all API routes

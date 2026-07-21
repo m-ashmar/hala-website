@@ -13,6 +13,7 @@
  * Document ID conventions (deterministic, collision-free):
  *  - Order:  "order-{pgId}"
  *  - Coupon: "coupon-{pgId}"
+ *  - CustomRequest: "customrequest-{pgId}"
  */
 
 import { writeClient } from '@/sanity/lib/client'
@@ -87,6 +88,11 @@ export function couponSanityId(pgId: string): string {
 /** Returns the deterministic Sanity document ID for a Postgres user. */
 export function userSanityId(pgId: string): string {
   return `user-${pgId}`
+}
+
+/** Returns the deterministic Sanity document ID for a Postgres custom request. */
+export function customRequestSanityId(pgId: string): string {
+  return `customrequest-${pgId}`
 }
 
 // ── Order Sync ────────────────────────────────────────────────────────────────
@@ -256,5 +262,49 @@ export async function syncUserToSanity(user: UserSyncInput): Promise<void> {
     logger.info({ userId: user.id, docId }, '[SanitySync] User synced')
   } catch (err) {
     logger.error({ userId: user.id, err }, '[SanitySync] Failed to sync user')
+  }
+}
+
+// ── Custom Request Sync ───────────────────────────────────────────────────────
+
+export interface CustomRequestSyncInput {
+  id: string
+  name: string
+  email: string
+  title: string
+  details: string
+  imageUrls: string[]
+  requestedQuantity: number
+  status: string
+  quotePrice: number | null
+  currency: string
+  estimatedDays: number | null
+  adminNotes: string | null
+}
+
+export async function syncCustomRequestToSanity(req: CustomRequestSyncInput): Promise<void> {
+  const docId = customRequestSanityId(req.id)
+
+  try {
+    const doc = {
+      _id: docId,
+      _type: 'customRequest',
+      prismaId: req.id,
+      name: req.name,
+      email: req.email,
+      title: req.title,
+      details: req.details,
+      imageUrls: req.imageUrls,
+      requestedQuantity: req.requestedQuantity,
+      status: req.status,
+      quotePrice: req.quotePrice,
+      estimatedDays: req.estimatedDays,
+      adminNotes: req.adminNotes,
+    }
+
+    await writeClient.createOrReplace(doc)
+    logger.info({ customRequestId: req.id, docId }, '[SanitySync] CustomRequest synced')
+  } catch (err) {
+    logger.error({ customRequestId: req.id, err }, '[SanitySync] Failed to sync CustomRequest')
   }
 }

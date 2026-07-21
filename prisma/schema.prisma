@@ -34,6 +34,13 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum CheckoutDraftStatus {
+  PENDING    // awaiting Stripe payment
+  COMPLETED  // order created successfully
+  EXPIRED    // Stripe session expired before payment
+  CANCELLED  // user abandoned
+}
+
 enum CustomRequestStatus {
   SUBMITTED
   QUOTED
@@ -162,6 +169,7 @@ model Order {
   referenceCode         String? @unique // ShamCash reference (e.g. HL-20260707-A3F2)
   stripeSessionId       String? @unique
   stripePaymentIntentId String? @unique
+  stripeCustomerId      String?         // for refunds / disputes / analytics
 
   // Guest checkout — stored even when userId is null
   customerName  String?
@@ -180,6 +188,7 @@ model Order {
 
   items        OrderItem[]
   couponUsages CouponUsage[]
+  customRequest CustomRequest?
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -211,15 +220,24 @@ model OrderItem {
 }
 
 model CustomRequest {
-  id         String              @id @default(cuid())
-  userId     String?
-  user       User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
-  name       String
-  email      String
-  details    String              @db.Text
-  status     CustomRequestStatus @default(SUBMITTED)
-  quotePrice Float?
-  imageUrls  String[]
+  id                String              @id @default(cuid())
+  userId            String?
+  user              User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name              String
+  email             String
+  title             String              @default("Custom Request")
+  details           String              @db.Text
+  imageUrls         String[]
+  requestedQuantity Int                 @default(1)
+  status            CustomRequestStatus @default(SUBMITTED)
+  quotePrice        Float?
+  currency          String              @default("SYP")
+  estimatedDays     Int?
+  adminNotes        String?             @db.Text
+
+  // Link to final order once paid
+  orderId           String?             @unique
+  order             Order?              @relation(fields: [orderId], references: [id])
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -300,4 +318,44 @@ model Wishlist {
 
   @@unique([userId, sanityProductId]) // one entry per product per user
   @@index([userId])
+}
+
+// ── Checkout Draft ───────────────────────────────────────────────────────────
+
+/// Stores the full cart snapshot before redirecting to Stripe.
+/// Only checkoutToken + userId go into Stripe metadata — no cart data in metadata.
+/// Guarantees idempotent order creation regardless of whether webhook or browser arrives first.
+model CheckoutDraft {
+  id             String              @id @default(cuid())
+  checkoutToken  String              @unique // UUID sent to Stripe metadata
+  userId         String?             // null for guest checkout
+
+  // Customer info snapshot
+  customerName   String
+  customerEmail  String
+  customerPhone  String?
+  customerNote   String?             @db.Text
+
+  // Cart snapshot (JSON array of ValidatedOrderItem)
+  items          Json
+  couponId       String?
+  discountAmount Float               @default(0)
+  subtotal       Float
+  totalAmount    Float
+  currency       String              @default("SYP")
+  shippingAmount Float               @default(0)
+
+  // Stripe linkage — set after session creation
+  stripeSessionId String?            @unique
+
+  status         CheckoutDraftStatus @default(PENDING)
+  expiresAt      DateTime            // mirrors Stripe session expiry
+
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  @@index([checkoutToken])
+  @@index([userId])
+  @@index([status])
+  @@index([stripeSessionId])
 }

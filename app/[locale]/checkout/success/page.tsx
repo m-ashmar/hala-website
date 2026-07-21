@@ -24,24 +24,44 @@ function fmt(n: number, currency: string) {
 export default function CheckoutSuccessPage() {
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
+  const sessionId = searchParams.get('session_id'); // From Stripe redirect
+  
   const [order, setOrder] = useState<OrderDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const clearCart = useCartStore((s) => s.clearCart);
 
   useEffect(() => {
-    if (!orderId) { setLoading(false); return; }
+    if (!orderId && !sessionId) { 
+      setLoading(false); 
+      return; 
+    }
     
     // Clear cart immediately upon landing on the success page
     clearCart();
-    fetch(`/api/checkout/verify/${orderId}`)
-      .then(r => r.json())
-      .then(d => {
-        // The verify endpoint returns minimal data; fetch full order from admin endpoint
-        // For now use the verification response directly
-        setOrder(d);
-      })
-      .finally(() => setLoading(false));
-  }, [orderId]);
+
+    if (sessionId) {
+      // Stripe flow: verify session and get order
+      fetch(`/api/checkout/stripe-return?session_id=${sessionId}`)
+        .then(r => r.json())
+        .then(d => {
+          if (d.error || d.status === 'pending') {
+             // Still pending or error, we might want to poll or just show what we have
+             setOrder(d.orderId ? d : null);
+          } else {
+            setOrder(d);
+          }
+        })
+        .finally(() => setLoading(false));
+    } else if (orderId) {
+      // ShamCash legacy flow
+      fetch(`/api/checkout/verify/${orderId}`)
+        .then(r => r.json())
+        .then(d => {
+          setOrder(d);
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [orderId, sessionId, clearCart]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #0F0D0C 0%, #140F0E 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-body, Inter, sans-serif)', padding: 24 }}>
@@ -52,8 +72,8 @@ export default function CheckoutSuccessPage() {
             <div style={{ width: 48, height: 48, border: '3px solid rgba(207,161,141,0.2)', borderTopColor: '#CFA18D', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 20px' }} />
             <p style={{ color: 'rgba(250,247,245,0.4)' }}>Loading your order…</p>
           </div>
-        ) : !orderId ? (
-          // No order ID — generic success (shouldn't normally happen)
+        ) : (!orderId && !sessionId && !order) ? (
+          // No order ID or session ID — generic success
           <div style={{ textAlign: 'center', background: 'linear-gradient(135deg, #1E1816, #1A1412)', border: '1px solid rgba(207,161,141,0.12)', borderRadius: 24, padding: 48 }}>
             <div style={{ fontSize: '3.5rem', marginBottom: 20 }}>✅</div>
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#FAF7F5', margin: '0 0 12px' }}>Order Placed!</h1>
@@ -83,7 +103,7 @@ export default function CheckoutSuccessPage() {
               {/* Order ID */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.8rem', color: 'rgba(250,247,245,0.4)' }}>Order ID</span>
-                <span style={{ color: 'rgba(250,247,245,0.6)', fontFamily: 'monospace', fontSize: '0.78rem' }}>{orderId?.slice(0, 20)}…</span>
+                <span style={{ color: 'rgba(250,247,245,0.6)', fontFamily: 'monospace', fontSize: '0.78rem' }}>{(order?.id || orderId || 'pending').slice(0, 20)}…</span>
               </div>
 
               {/* Status */}

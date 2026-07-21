@@ -11,6 +11,8 @@ export interface CartItem {
   productSyncId: string;
   /** human-readable slug from Sanity (e.g. "hijab-rose-silk") */
   sanityId: string;
+  /** product category from Sanity ("hijab" | "plexi") — used for coupon scope filtering */
+  category?: string;
   /** display name derived from sanityId */
   name: string;
   /** price in the store currency (fetched from DB at checkout time) */

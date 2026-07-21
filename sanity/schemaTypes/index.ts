@@ -9,6 +9,7 @@ import { shippingSettingsType } from './shippingSettings'
 import { orderType } from './order'
 import { couponType } from './coupon'
 import { userType } from './user'
+import { customRequestType } from './customRequest'
 
 export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
@@ -22,6 +23,7 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     orderType,
     couponType,
     userType,
+    customRequestType,
     // Singletons
     siteSettingsType,
     shippingSettingsType,

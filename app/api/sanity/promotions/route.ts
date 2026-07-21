@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getFeaturedPromotions } from '@/sanity/lib/queries';
 
+// Cache promotions for 2 minutes — time-sensitive but not as critical as banners
+export const revalidate = 120;
+
 export async function GET() {
   try {
     const promotions = await getFeaturedPromotions();
