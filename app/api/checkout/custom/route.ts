@@ -7,9 +7,13 @@ import { randomUUID } from 'crypto';
 import { createPendingOrder, generateReferenceCode, getOrderWithItemsById } from '@/lib/repositories/order.repository';
 import { syncOrderToSanity, syncCustomRequestToSanity } from '@/lib/services/sanity-sync.service';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-06-24.dahlia' as any,
-});
+export const dynamic = 'force-dynamic';
+
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2026-06-24.dahlia' as any,
+  });
+}
 
 const customCheckoutSchema = z.object({
   customRequestId: z.string().min(1),
@@ -70,7 +74,7 @@ export async function POST(req: NextRequest) {
       }
 
       const stripeCurrency = 'usd'; // using usd for test environment
-      const stripeSession = await stripe.checkout.sessions.create({
+      const stripeSession = await getStripe().checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [
           {

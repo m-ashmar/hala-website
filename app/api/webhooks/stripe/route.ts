@@ -15,9 +15,13 @@ import { headers } from 'next/headers';
 import { logger } from '@/lib/logger';
 import { createPendingOrder, generateReferenceCode } from '@/lib/repositories/order.repository';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-06-24.dahlia',
-});
+export const dynamic = 'force-dynamic';
+
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2026-06-24.dahlia',
+  });
+}
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -39,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (!signature || !endpointSecret) {
       throw new Error('Missing stripe-signature or STRIPE_WEBHOOK_SECRET');
     }
-    event = stripe.webhooks.constructEvent(body, signature, endpointSecret);
+    event = getStripe().webhooks.constructEvent(body, signature, endpointSecret);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     logger.error({ message }, '[Stripe Webhook] Signature verification failed');

@@ -41,10 +41,12 @@ import { validateCsrfOrigin, getClientIp } from '@/lib/security';
 // 3 checkout attempts per IP per minute — prevents brute-force stock checks
 const checkoutLimiter = createRateLimiter({ limit: 3, windowMs: 60_000 });
 
-// Initialize Stripe (optional chaining for safety if key is missing)
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-06-24.dahlia',
-});
+// Lazy Stripe getter — avoids module-level instantiation at build time
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2026-06-24.dahlia',
+  });
+}
 
 // ── Validation schema ─────────────────────────────────────────────────────────
 
@@ -238,7 +240,7 @@ export async function POST(req: NextRequest) {
       if (discountAmount > 0) {
         const discountInCents = Math.round(discountAmount * 100);
         try {
-          const stripeCoupon = await stripe.coupons.create({
+          const stripeCoupon = await getStripe().coupons.create({
             amount_off: discountInCents,
             currency: stripeCurrency,
             duration: 'once',
@@ -251,7 +253,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Create Session with ONLY the token in metadata
-      const stripeSession = await stripe.checkout.sessions.create({
+      const stripeSession = await getStripe().checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: stripeLineItems,
         mode: 'payment',

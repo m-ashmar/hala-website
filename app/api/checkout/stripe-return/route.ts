@@ -4,9 +4,13 @@ import { fulfillStripeCheckout } from '@/lib/services/checkout.service';
 import prisma from '@/lib/prisma';
 import { createPendingOrder, generateReferenceCode, confirmOrderPayment } from '@/lib/repositories/order.repository';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-06-24.dahlia',
-});
+export const dynamic = 'force-dynamic';
+
+function getStripe() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2026-06-24.dahlia',
+  });
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +21,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Missing session_id' }, { status: 400 });
     }
 
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await getStripe().checkout.sessions.retrieve(sessionId);
 
     if (session.payment_status !== 'paid') {
       return NextResponse.json({ status: 'pending' });
