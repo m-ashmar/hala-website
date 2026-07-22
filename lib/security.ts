@@ -16,13 +16,29 @@ import { NextRequest, NextResponse } from 'next/server';
  * Includes localhost variants for development.
  */
 function getAllowedOrigins(): string[] {
-  const base = process.env.NEXTAUTH_URL ?? 'http://localhost:3000';
-  const origins = new Set<string>([base.replace(/\/$/, '')]);
+  const origins = new Set<string>();
+
+  // Primary: NEXTAUTH_URL (e.g. https://yourdomain.com)
+  const nextAuthUrl = process.env.NEXTAUTH_URL;
+  if (nextAuthUrl) origins.add(nextAuthUrl.replace(/\/$/, ''));
+
+  // Secondary: explicit site URL override
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  if (siteUrl) origins.add(siteUrl.replace(/\/$/, ''));
+
+  // Vercel automatic deployment URL (e.g. hala-website.vercel.app)
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl) origins.add(`https://${vercelUrl.replace(/\/$/, '')}`);
 
   // Always allow localhost in development
   if (process.env.NODE_ENV !== 'production') {
     origins.add('http://localhost:3000');
     origins.add('http://127.0.0.1:3000');
+  }
+
+  // Fallback: if nothing is configured, allow localhost
+  if (origins.size === 0) {
+    origins.add('http://localhost:3000');
   }
 
   return Array.from(origins);
