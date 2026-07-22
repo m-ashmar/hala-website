@@ -64,22 +64,26 @@ export default async function ProductPage({ params }: ProductPageProps) {
 
   // Fetch DB record; if it doesn't exist yet (webhook never fired / new product),
   // auto-seed it so the page works immediately after publishing in Sanity.
-  let dbProduct = await prisma.productSync.findUnique({
-    where: { sanityId: slug },
-    select: { id: true, stock: true },
-  });
+  // Entire block is non-fatal: if the DB is unreachable at build time (e.g. no
+  // connection pool available during static prerendering), dbProduct stays null
+  // and the customisation form is hidden — the page still renders from Sanity data.
+  let dbProduct: { id: string; stock: number } | null = null;
+  try {
+    dbProduct = await prisma.productSync.findUnique({
+      where: { sanityId: slug },
+      select: { id: true, stock: true },
+    });
 
-  if (!dbProduct) {
-    try {
+    if (!dbProduct) {
       dbProduct = await prisma.productSync.upsert({
         where: { sanityId: slug },
         update: {},
         create: { sanityId: slug, price: product.price, stock: 100, isActive: true },
         select: { id: true, stock: true },
       });
-    } catch {
-      // Non-fatal: if DB is unreachable, dbProduct stays null and the form is hidden
     }
+  } catch {
+    // Non-fatal: DB unreachable at build time — page renders without stock info
   }
 
   const allImages = [product.imageUrl, ...(product.galleryUrls || [])].filter(Boolean) as string[];
