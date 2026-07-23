@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 
 /**
  * POST /api/webhooks/sanity
@@ -64,9 +64,14 @@ function isCustomRequestStatus(value: unknown): value is CustomRequestStatus {
 // ── Handlers per document type ────────────────────────────────────────────────
 
 async function handleProductEvent(payload: Record<string, unknown>) {
-  // `payload.sanityId` is the slug (e.g. "pink-hijab") set by the GROQ projection.
-  // `payload._id` is the raw Sanity document ID — NOT what we store in Postgres.
-  const sanityId = (payload.sanityId as string | undefined) || (payload._id as string);
+  // Sanity sends slug fields as objects: { _type: "slug", current: "blue-white-hijab" }
+  // Extract .current if it's an object, otherwise use as-is
+  const rawSanityId = payload.sanityId;
+  const sanityId =
+    rawSanityId && typeof rawSanityId === 'object' && 'current' in (rawSanityId as object)
+      ? (rawSanityId as { current: string }).current
+      : (rawSanityId as string | undefined) || (payload._id as string);
+
 
   if (payload.operation === 'delete') {
     await deleteProductBySanityId(sanityId);
