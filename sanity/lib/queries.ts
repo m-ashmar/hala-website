@@ -180,25 +180,27 @@ const PRODUCT_FIELDS = `
 function enrichProduct(p: any): SanityProduct {
   return {
     ...p,
-    imageUrl: p.image ? urlFor(p.image).width(1200).auto('format').url() : '',
-    galleryUrls: p.gallery?.map((img: any) => urlFor(img).width(1200).auto('format').url()) || [],
+    imageUrl: p.image?.asset ? urlFor(p.image).width(1200).auto('format').url() : '',
+    galleryUrls: p.gallery
+      ?.filter((img: any) => img?.asset)
+      .map((img: any) => urlFor(img).width(1200).auto('format').url()) || [],
   }
 }
 
 export async function getAllProducts(): Promise<SanityProduct[]> {
-  const query = `*[_type == "product" && isActive == true] { ${PRODUCT_FIELDS} } | order(category asc, _createdAt desc)`
+  const query = `*[_type == "product" && isActive != false] { ${PRODUCT_FIELDS} } | order(category asc, _createdAt desc)`
   const raw = await client.fetch(query)
   return raw.map(enrichProduct)
 }
 
 export async function getProductsByCategory(category: 'hijab' | 'plexi'): Promise<SanityProduct[]> {
-  const query = `*[_type == "product" && category == $category && isActive == true] { ${PRODUCT_FIELDS} } | order(_createdAt desc)`
+  const query = `*[_type == "product" && category == $category && isActive != false] { ${PRODUCT_FIELDS} } | order(_createdAt desc)`
   const raw = await client.fetch(query, { category })
   return raw.map(enrichProduct)
 }
 
 export async function getFeaturedProducts(): Promise<SanityProduct[]> {
-  const query = `*[_type == "product" && isFeatured == true && isActive == true] { ${PRODUCT_FIELDS} } | order(_createdAt desc)`
+  const query = `*[_type == "product" && isFeatured == true && isActive != false] { ${PRODUCT_FIELDS} } | order(_createdAt desc)`
   const raw = await client.fetch(query)
   return raw.map(enrichProduct)
 }
@@ -219,7 +221,7 @@ export async function getProductBySlug(slug: string): Promise<SanityProduct | nu
 }
 
 export async function getRelatedProducts(sanityId: string, category: string): Promise<SanityProduct[]> {
-  const query = `*[_type == "product" && category == $category && sanityId.current != $sanityId && isActive == true][0...4] { ${PRODUCT_FIELDS} }`
+  const query = `*[_type == "product" && category == $category && sanityId.current != $sanityId && isActive != false][0...4] { ${PRODUCT_FIELDS} }`
   const raw = await client.fetch(query, { sanityId, category })
   return raw.map(enrichProduct)
 }
