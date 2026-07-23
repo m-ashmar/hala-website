@@ -6,6 +6,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { ToastProvider } from "@/components/ui/Toast";
 import { WishlistProvider } from "@/components/product/WishlistContext";
+import { ENABLE_EXTRA_THEME_TOKENS } from "@/lib/theme-config";
 
 /* ─── Premium Font Stack ─── */
 
@@ -65,6 +66,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
+      data-theme-extras={ENABLE_EXTRA_THEME_TOKENS ? "on" : "off"}
       className={`${cormorant.variable} ${dmSans.variable} ${tajawal.variable}`}
     >
       <body>

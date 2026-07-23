@@ -120,11 +120,12 @@ export default function LoginPage() {
         <div className={styles.header}>
           <Link href="/">
             <Image
-              src="/logo.svg" // Fallback logo if you don't have one, or make sure /logo.svg exists
+              src="/logo.jpg"
               alt="Halahello"
               width={48}
               height={48}
               className={styles.logo}
+              style={{ objectFit: 'cover' }}
             />
           </Link>
           <h1 className={styles.title}>

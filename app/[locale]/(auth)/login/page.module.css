@@ -45,6 +45,7 @@
   margin: 0 auto 1.5rem;
   width: 48px;
   height: 48px;
+  border-radius: 50%;
   animation: scaleIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
   opacity: 0;
   transform: scale(0.9);

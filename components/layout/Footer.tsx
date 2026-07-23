@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import styles from './Footer.module.css';
 
@@ -63,6 +64,9 @@ export function Footer({ locale = 'en' }: FooterProps) {
         {/* ── Brand column ── */}
         <div className={styles.brand}>
           <div className={styles.logo}>
+            <span className={styles.logoImgWrap}>
+              <Image src="/logo.jpg" alt="Halahello" width={44} height={44} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+            </span>
             <span className={styles.logoText}>Hala</span>
             <span className={styles.logoAccent}>hello</span>
           </div>

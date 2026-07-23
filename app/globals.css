@@ -7,29 +7,28 @@
 
 /* ─── Brand Design Tokens ─── */
 :root {
-  /* Core Palette */
+  /* Core Palette — identical to the original Halahello palette */
   --bg-primary:     #FAF7F5;
   --bg-secondary:   #F6EDEE;
   --accent:         #CFA18D;
   --accent-light:   #E3B8A7;
-  --accent-dark:    #B07E6A;
   --text-primary:   #3A2E2A;
   --text-secondary: #6B5B55;
   --highlight:      #EAD0D6;
   --white:          #FFFFFF;
-  --card-bg:        #FFFFFF;
   --footer-bg:      #3A2E2A;
   --footer-text:    #FAF7F5;
 
-  /* Luxury Gradients */
-  --gradient-luxury:  linear-gradient(135deg, #CFA18D 0%, #E3B8A7 50%, #B07E6A 100%);
-  --gradient-warm:    linear-gradient(135deg, #FAF7F5 0%, #F6EDEE 60%, #EAD0D6 100%);
-  --gradient-dark:    linear-gradient(135deg, #3A2E2A 0%, #6B5B55 100%);
-  --gradient-hero:    linear-gradient(135deg,
-                        color-mix(in srgb, #3A2E2A 85%, transparent) 0%,
-                        color-mix(in srgb, #3A2E2A 60%, transparent) 50%,
-                        color-mix(in srgb, #CFA18D 20%, transparent) 100%);
-  --gradient-card:    linear-gradient(180deg, transparent 50%, rgba(58,46,42,0.85) 100%);
+  /* Extended tokens — flattened to original-matching values by default.
+     Flipped to the richer "on" versions below when data-theme-extras="on"
+     is set on <html> (see lib/theme-config.ts). */
+  --accent-dark:      var(--accent);
+  --card-bg:          var(--white);
+  --gradient-luxury:  var(--accent);
+  --gradient-warm:    var(--bg-secondary);
+  --gradient-dark:    var(--footer-bg);
+  --gradient-hero:    rgba(58, 46, 42, 0.55);
+  --gradient-card:    rgba(58, 46, 42, 0.85);
 
   /* Typography */
   --font-heading: 'Cormorant Garamond', 'Playfair Display', Georgia, serif;
@@ -95,6 +94,23 @@
   --status-refunded-bg:          #F1F5F9;
   --status-refunded-text:        #475569;
   --status-refunded-border:      #94A3B8;
+}
+
+/* ─── Extended Design Tokens (opt-in) ───
+   Set by ENABLE_EXTRA_THEME_TOKENS in lib/theme-config.ts.
+   Off by default so colors match the original Halahello palette. */
+[data-theme-extras="on"] {
+  --accent-dark:      #B07E6A;
+  --card-bg:          #FFFFFF;
+
+  --gradient-luxury:  linear-gradient(135deg, #CFA18D 0%, #E3B8A7 50%, #B07E6A 100%);
+  --gradient-warm:    linear-gradient(135deg, #FAF7F5 0%, #F6EDEE 60%, #EAD0D6 100%);
+  --gradient-dark:    linear-gradient(135deg, #3A2E2A 0%, #6B5B55 100%);
+  --gradient-hero:    linear-gradient(135deg,
+                        color-mix(in srgb, #3A2E2A 85%, transparent) 0%,
+                        color-mix(in srgb, #3A2E2A 60%, transparent) 50%,
+                        color-mix(in srgb, #CFA18D 20%, transparent) 100%);
+  --gradient-card:    linear-gradient(180deg, transparent 50%, rgba(58,46,42,0.85) 100%);
 }
 
 /* ─── Dark Mode Overrides ─── */

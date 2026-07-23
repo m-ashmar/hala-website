@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import styles from './Navbar.module.css';
@@ -94,6 +95,14 @@ export function Navbar() {
         <div className={styles.inner}>
           {/* ── Logo ── */}
           <Link href={`/${locale}`} className={styles.logo} aria-label="Halahello — Home">
+            <span className={styles.logoWrap}>
+              <span className={styles.heart} aria-hidden="true">♥</span>
+              <span className={styles.heart} aria-hidden="true">♥</span>
+              <span className={styles.heart} aria-hidden="true">♥</span>
+              <span className={styles.logoMark}>
+                <Image src="/logo.jpg" alt="" width={40} height={40} priority style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+              </span>
+            </span>
             <span className={styles.logoText}>Hala</span>
             <span className={styles.logoAccent}>hello</span>
           </Link>
@@ -145,6 +154,16 @@ export function Navbar() {
         aria-hidden={!menuOpen}
         dir={isAr ? 'rtl' : 'ltr'}
       >
+        <div className={styles.drawerHeader}>
+          <span className={styles.drawerLogoMark}>
+            <Image src="/logo.jpg" alt="Halahello" width={52} height={52} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+          </span>
+          <span>
+            <span className={styles.logoText}>Hala</span>
+            <span className={styles.logoAccent}>hello</span>
+          </span>
+        </div>
+
         <nav className={styles.mobileNav} aria-label="Mobile navigation">
           {NAV_LINKS.map((link) => (
             <Link
