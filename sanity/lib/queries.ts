@@ -9,6 +9,13 @@ export interface SanityProduct {
   titleAr?: string
   sanityId: string // slug for DB sync
   category: 'hijab' | 'plexi'
+  subCategory?: {
+    _id: string
+    title: string
+    titleAr?: string
+    slug: string
+    division: 'hijab' | 'plexi'
+  } | null
   image: any
   imageUrl: string
   gallery?: any[]
@@ -41,6 +48,17 @@ export interface SanityProduct {
   relatedProducts?: SanityProduct[]
   metaTitle?: string
   metaDescription?: string
+}
+
+export interface SanityProductCategory {
+  _id: string
+  title: string
+  titleAr?: string
+  slug: string
+  division: 'hijab' | 'plexi'
+  imageUrl?: string
+  order: number
+  isActive: boolean
 }
 
 export interface SanityPromotion {
@@ -156,6 +174,13 @@ const PRODUCT_FIELDS = `
   titleAr,
   "sanityId": sanityId.current,
   category,
+  subCategory->{
+    _id,
+    title,
+    titleAr,
+    "slug": slug.current,
+    division
+  },
   image,
   gallery,
   description,
@@ -191,6 +216,17 @@ export async function getAllProducts(): Promise<SanityProduct[]> {
   const query = `*[_type == "product" && isActive != false] { ${PRODUCT_FIELDS} } | order(category asc, _createdAt desc)`
   const raw = await client.fetch(query)
   return raw.map(enrichProduct)
+}
+
+export async function getProductCategories(): Promise<SanityProductCategory[]> {
+  const query = `*[_type == "productCategory" && isActive != false] {
+    _id, title, titleAr, "slug": slug.current, division, image, order, isActive
+  } | order(division asc, order asc)`
+  const raw = await client.fetch(query)
+  return raw.map((c: SanityProductCategory & { image?: { asset?: unknown } }) => ({
+    ...c,
+    imageUrl: c.image?.asset ? urlFor(c.image).width(200).auto('format').url() : undefined,
+  }))
 }
 
 export async function getProductsByCategory(category: 'hijab' | 'plexi'): Promise<SanityProduct[]> {

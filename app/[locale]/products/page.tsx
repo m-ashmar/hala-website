@@ -1,4 +1,4 @@
-import { getAllProducts } from '@/sanity/lib/queries';
+import { getAllProducts, getProductCategories } from '@/sanity/lib/queries';
 import ProductsClient from '@/components/product/ProductsClient';
 import prisma from '@/lib/prisma';
 
@@ -13,8 +13,11 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
 
 export default async function ProductsPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
-  const products = await getAllProducts();
-  
+  const [productsResult, categoriesResult] = await Promise.allSettled([getAllProducts(), getProductCategories()]);
+  const products = productsResult.status === 'fulfilled' ? productsResult.value : [];
+  const categories = categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];
+  if (productsResult.status === 'rejected') console.error('Failed to fetch products from Sanity:', productsResult.reason);
+
   let dbProducts: any[] = [];
   try {
     // Fetch pricing/stock from PostgreSQL
@@ -26,5 +29,5 @@ export default async function ProductsPage({ params }: { params: Promise<{ local
     // Fallback to empty dbProducts if DB is asleep or unreachable
   }
 
-  return <ProductsClient products={products} dbProducts={dbProducts} locale={locale} />;
+  return <ProductsClient products={products} categories={categories} dbProducts={dbProducts} locale={locale} />;
 }

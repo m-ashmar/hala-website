@@ -7,6 +7,8 @@ import { Footer } from "@/components/layout/Footer";
 import { ToastProvider } from "@/components/ui/Toast";
 import { WishlistProvider } from "@/components/product/WishlistContext";
 import { ENABLE_EXTRA_THEME_TOKENS } from "@/lib/theme-config";
+import { AnnouncementBar, ANNOUNCEMENT_BAR_HEIGHT } from "@/components/layout/AnnouncementBar";
+import { getSiteSettings } from "@/sanity/lib/queries";
 
 /* ─── Premium Font Stack ─── */
 
@@ -57,14 +59,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
+  params,
 }: Readonly<{
   children: React.ReactNode;
+  params: Promise<{ locale: string }>;
 }>) {
+  const { locale } = await params;
+  const settings = await getSiteSettings().catch(() => null);
+  const announcementText = settings?.announcementBarActive
+    ? (locale === "ar" ? settings.announcementBarAr : settings.announcementBar)
+    : null;
+
   return (
     <html
-      lang="en"
+      lang={locale}
       suppressHydrationWarning
       data-theme-extras={ENABLE_EXTRA_THEME_TOKENS ? "on" : "off"}
       className={`${cormorant.variable} ${dmSans.variable} ${tajawal.variable}`}
@@ -73,11 +83,12 @@ export default function RootLayout({
         <Providers>
           <WishlistProvider>
             <ToastProvider>
-              <Navbar />
+              <AnnouncementBar text={announcementText} isAr={locale === "ar"} />
+              <Navbar logoUrl={settings?.logoUrl} offsetTop={announcementText ? ANNOUNCEMENT_BAR_HEIGHT : 0} />
               <main id="main-content" className="page-enter">
                 {children}
               </main>
-              <Footer />
+              <Footer locale={locale} settings={settings} />
             </ToastProvider>
           </WishlistProvider>
         </Providers>

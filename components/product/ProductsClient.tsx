@@ -4,31 +4,40 @@ import React, { useState, useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useCartStore } from '@/lib/stores/cart.store';
-import type { SanityProduct } from '@/sanity/lib/queries';
+import type { SanityProduct, SanityProductCategory } from '@/sanity/lib/queries';
 import { WishlistButton } from './WishlistButton';
 
 interface ProductsClientProps {
   products: SanityProduct[];
+  categories: SanityProductCategory[];
   dbProducts: any[];
   locale: string;
 }
 
-export default function ProductsClient({ products, dbProducts, locale }: ProductsClientProps) {
-  console.log("Products:", products);
-  console.log("DB Products:", dbProducts);
+export default function ProductsClient({ products, categories, dbProducts, locale }: ProductsClientProps) {
   const isAr = locale === 'ar';
 
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState<'all' | 'hijab' | 'plexi'>('all');
+  const [division, setDivision] = useState<'all' | 'hijab' | 'plexi'>('all');
+  const [subCategory, setSubCategory] = useState<'all' | string>('all');
   const [sort, setSort] = useState<'default' | 'price-asc' | 'price-desc'>('default');
 
   const addToCart = useCartStore((s) => s.addItem);
 
+  const divisionCategories = useMemo(
+    () => (division === 'all' ? [] : categories.filter(c => c.division === division)),
+    [categories, division]
+  );
+
   const filteredProducts = useMemo(() => {
     let result = products;
 
-    if (category !== 'all') {
-      result = result.filter(p => p.category === category);
+    if (division !== 'all') {
+      result = result.filter(p => p.category === division);
+    }
+
+    if (subCategory !== 'all') {
+      result = result.filter(p => p.subCategory?._id === subCategory);
     }
 
     if (search.trim()) {
@@ -47,7 +56,12 @@ export default function ProductsClient({ products, dbProducts, locale }: Product
     }
 
     return result;
-  }, [products, category, search, sort, isAr]);
+  }, [products, division, subCategory, search, sort, isAr]);
+
+  const selectDivision = (id: 'all' | 'hijab' | 'plexi') => {
+    setDivision(id);
+    setSubCategory('all');
+  };
 
   return (
     <div style={{ maxWidth: 1300, margin: '0 auto', padding: '120px 24px 80px', minHeight: '80vh' }}>
@@ -100,30 +114,73 @@ export default function ProductsClient({ products, dbProducts, locale }: Product
         borderBottom: '1px solid rgba(207,161,141,0.15)'
       }}>
         {/* Categories */}
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-          {[
-            { id: 'all', label: isAr ? 'الكل' : 'All' },
-            { id: 'hijab', label: isAr ? 'حجابات' : 'Hijabs' },
-            { id: 'plexi', label: isAr ? 'بلكسي' : 'Plexi' },
-          ].map(cat => (
-            <button
-              key={cat.id}
-              onClick={() => setCategory(cat.id as any)}
-              style={{
-                padding: '8px 24px',
-                borderRadius: 'var(--radius-full)',
-                fontSize: '0.9rem',
-                fontWeight: category === cat.id ? 600 : 500,
-                background: category === cat.id ? 'var(--accent)' : 'transparent',
-                color: category === cat.id ? '#fff' : 'var(--text-primary)',
-                border: `1px solid ${category === cat.id ? 'var(--accent)' : 'rgba(207,161,141,0.3)'}`,
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              {cat.label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            {[
+              { id: 'all', label: isAr ? 'الكل' : 'All' },
+              { id: 'hijab', label: isAr ? 'حجابات' : 'Hijabs' },
+              { id: 'plexi', label: isAr ? 'بلكسي' : 'Plexi' },
+            ].map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => selectDivision(cat.id as any)}
+                style={{
+                  padding: '8px 24px',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '0.9rem',
+                  fontWeight: division === cat.id ? 600 : 500,
+                  background: division === cat.id ? 'var(--accent)' : 'transparent',
+                  color: division === cat.id ? '#fff' : 'var(--text-primary)',
+                  border: `1px solid ${division === cat.id ? 'var(--accent)' : 'rgba(207,161,141,0.3)'}`,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Sub-category chips — shown once a division is picked */}
+          {divisionCategories.length > 0 && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => setSubCategory('all')}
+                style={{
+                  padding: '5px 16px',
+                  borderRadius: 'var(--radius-full)',
+                  fontSize: '0.8rem',
+                  fontWeight: subCategory === 'all' ? 600 : 500,
+                  background: subCategory === 'all' ? 'rgba(207,161,141,0.15)' : 'transparent',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid rgba(207,161,141,0.2)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {isAr ? 'كل الأصناف' : 'All types'}
+              </button>
+              {divisionCategories.map(cat => (
+                <button
+                  key={cat._id}
+                  onClick={() => setSubCategory(cat._id)}
+                  style={{
+                    padding: '5px 16px',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.8rem',
+                    fontWeight: subCategory === cat._id ? 600 : 500,
+                    background: subCategory === cat._id ? 'rgba(207,161,141,0.15)' : 'transparent',
+                    color: subCategory === cat._id ? 'var(--accent)' : 'var(--text-secondary)',
+                    border: `1px solid ${subCategory === cat._id ? 'var(--accent)' : 'rgba(207,161,141,0.2)'}`,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {isAr && cat.titleAr ? cat.titleAr : cat.title}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Sort */}
@@ -153,7 +210,7 @@ export default function ProductsClient({ products, dbProducts, locale }: Product
           <p style={{ fontSize: '1.2rem', marginBottom: 16 }}>
             {isAr ? 'لم يتم العثور على منتجات' : 'No products found'}
           </p>
-          <button onClick={() => { setSearch(''); setCategory('all'); }} className="btn-secondary">
+          <button onClick={() => { setSearch(''); selectDivision('all'); }} className="btn-secondary">
             {isAr ? 'مسح الفلاتر' : 'Clear Filters'}
           </button>
         </div>
@@ -215,7 +272,9 @@ export default function ProductsClient({ products, dbProducts, locale }: Product
                     </h3>
                   </Link>
                   <span style={{ fontSize: "0.75rem", color: "var(--text-secondary)", fontWeight: 500, display: "block", marginBottom: 14 }}>
-                    {p.category === 'hijab' ? (isAr ? 'حجاب بلكسي' : 'Premium Hijab') : (isAr ? 'إكسسوار بلكسي' : 'Premium Plexi')}
+                    {p.subCategory
+                      ? (isAr && p.subCategory.titleAr ? p.subCategory.titleAr : p.subCategory.title)
+                      : (p.category === 'hijab' ? (isAr ? 'حجاب بلكسي' : 'Premium Hijab') : (isAr ? 'إكسسوار بلكسي' : 'Premium Plexi'))}
                   </span>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid rgba(207,161,141,0.12)" }}>
                     <div>

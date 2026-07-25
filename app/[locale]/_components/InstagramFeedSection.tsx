@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
-const INSTAGRAM_URL = "https://instagram.com/halahelloo";
+const DEFAULT_INSTAGRAM_URL = "https://instagram.com/halahello";
 const STATIC_INSTAGRAM_IMAGES = [
   "/products/hijab/hijab.jpg", "/products/plexi/c1.jpg", "/products/hijab/hijab-a1.avif",
   "/products/plexi/d1.jpg", "/products/plexi/e1.jpg", "/products/hijab/hijab-b1.jpg",
@@ -29,11 +29,14 @@ interface Post {
 interface Props {
   isRtl: boolean;
   T: (key: "instaTag" | "instaTitle1" | "instaTitle2") => string;
+  instagramUrl?: string;
 }
 
-export default function InstagramFeedSection({ isRtl, T }: Props) {
+export default function InstagramFeedSection({ isRtl, T, instagramUrl }: Props) {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const igUrl = instagramUrl || DEFAULT_INSTAGRAM_URL;
+  const igHandle = igUrl.replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/\/$/, "");
 
   useEffect(() => {
     fetch("/api/instagram/feed")
@@ -74,7 +77,7 @@ export default function InstagramFeedSection({ isRtl, T }: Props) {
                 </a>
               ))
             : STATIC_INSTAGRAM_IMAGES.map((img, i) => (
-                <a key={i} href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer"
+                <a key={i} href={igUrl} target="_blank" rel="noopener noreferrer"
                   className="insta-item fade-in-section" style={{ transitionDelay: `${i * 60}ms` }} aria-label="Visit Halahello on Instagram">
                   <Image src={img} alt={`Halahello ${i + 1}`} fill style={{ objectFit: "cover" }} sizes="(max-width: 768px) 33vw, 20vw" />
                   <div className="insta-overlay" style={{ color: "white" }}><InstagramIcon /></div>
@@ -84,9 +87,9 @@ export default function InstagramFeedSection({ isRtl, T }: Props) {
         </div>
 
         <div style={{ textAlign: "center", marginTop: 40 }}>
-          <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" aria-label="Follow Halahello on Instagram"
+          <a href={igUrl} target="_blank" rel="noopener noreferrer" aria-label="Follow Halahello on Instagram"
             className="btn-ghost" style={{ fontSize: "0.9rem", padding: "12px 28px" }}>
-            <InstagramIcon /> @halahelloo
+            <InstagramIcon /> @{igHandle}
           </a>
         </div>
       </div>

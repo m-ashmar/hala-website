@@ -6,7 +6,7 @@
  * The interactive HomeClient island receives all data as props.
  */
 import { Suspense } from "react";
-import { getAllProducts, getHomepageBanners, getFeaturedPromotions, getTestimonials, getSiteSettings } from "@/sanity/lib/queries";
+import { getAllProducts, getHomepageBanners, getFeaturedPromotions, getTestimonials, getSiteSettings, getFAQs } from "@/sanity/lib/queries";
 import prisma from "@/lib/prisma";
 import HomeClient from "./_components/HomeClient";
 import type { Metadata } from "next";
@@ -46,6 +46,7 @@ export default async function Home() {
     sanityProductsResult,
     testimonialsResult,
     settingsResult,
+    faqsResult,
     dbProductsResult,
   ] = await Promise.allSettled([
     getHomepageBanners(),
@@ -53,6 +54,7 @@ export default async function Home() {
     getAllProducts(),
     getTestimonials(),
     getSiteSettings(),
+    getFAQs(),
     prisma.productSync.findMany({
       select: { id: true, sanityId: true, price: true, stock: true },
     }),
@@ -64,6 +66,7 @@ export default async function Home() {
   const sanityProducts = sanityProductsResult.status === "fulfilled" ? sanityProductsResult.value : [];
   const testimonials  = testimonialsResult.status  === "fulfilled" ? testimonialsResult.value  : [];
   const settings      = settingsResult.status      === "fulfilled" ? settingsResult.value      : null;
+  const faqs          = faqsResult.status          === "fulfilled" ? faqsResult.value          : [];
   const dbProducts    = dbProductsResult.status    === "fulfilled" ? dbProductsResult.value    : [];
 
   const heroStats = settings?.heroStats ?? [];
@@ -77,6 +80,8 @@ export default async function Home() {
         dbProducts={dbProducts}
         testimonials={testimonials}
         heroStats={heroStats}
+        faqs={faqs}
+        settings={settings}
       />
     </Suspense>
   );

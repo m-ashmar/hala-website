@@ -1,5 +1,6 @@
 import { type SchemaTypeDefinition } from 'sanity'
 import { productType } from './product'
+import { productCategoryType } from './productCategory'
 import { promotionType } from './promotion'
 import { homepageBannerType } from './homepageBanner'
 import { testimonialType } from './testimonial'
@@ -15,6 +16,7 @@ export const schema: { types: SchemaTypeDefinition[] } = {
   types: [
     // Content
     productType,
+    productCategoryType,
     promotionType,
     homepageBannerType,
     testimonialType,

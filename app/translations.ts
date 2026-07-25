@@ -122,6 +122,11 @@ export const t = {
     testTag: { en: "Testimonials", ar: "آراء العملاء" },
     testTitle1: { en: "What Our Clients", ar: "ماذا يقول" },
     testTitle2: { en: "Say", ar: "عملاؤنا" },
+
+    // FAQ
+    faqTag: { en: "FAQ", ar: "الأسئلة الشائعة" },
+    faqTitle1: { en: "Frequently Asked", ar: "الأسئلة" },
+    faqTitle2: { en: "Questions", ar: "الشائعة" },
     test1: {
         en: "The hijabs are so elegant and comfortable. I get compliments every time I wear one. The quality is unlike anything I've found before.",
         ar: "الحجابات أنيقة ومريحة جداً. أتلقى المجاملات في كل مرة أرتدي فيها واحدة. الجودة لا مثيل لها.",

@@ -30,7 +30,12 @@ const SCROLL_LINKS = [
   { id: 'plexi-products', label: 'Plexi', labelAr: 'بليكسي' },
 ];
 
-export function Navbar() {
+export interface NavbarProps {
+  logoUrl?: string;
+  offsetTop?: number;
+}
+
+export function Navbar({ logoUrl = '/logo.jpg', offsetTop = 0 }: NavbarProps) {
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -90,6 +95,7 @@ export function Navbar() {
     <>
       <header
         className={[styles.navbar, scrolled ? styles.scrolled : ''].filter(Boolean).join(' ')}
+        style={offsetTop ? { top: offsetTop } : undefined}
         dir={isAr ? 'rtl' : 'ltr'}
       >
         <div className={styles.inner}>
@@ -100,7 +106,7 @@ export function Navbar() {
               <span className={styles.heart} aria-hidden="true">♥</span>
               <span className={styles.heart} aria-hidden="true">♥</span>
               <span className={styles.logoMark}>
-                <Image src="/logo.jpg" alt="" width={40} height={40} priority style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+                <Image src={logoUrl} alt="" width={40} height={40} priority style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
               </span>
             </span>
             <span className={styles.logoText}>Hala</span>
@@ -156,7 +162,7 @@ export function Navbar() {
       >
         <div className={styles.drawerHeader}>
           <span className={styles.drawerLogoMark}>
-            <Image src="/logo.jpg" alt="Halahello" width={52} height={52} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+            <Image src={logoUrl} alt="Halahello" width={52} height={52} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
           </span>
           <span>
             <span className={styles.logoText}>Hala</span>

@@ -15,6 +15,8 @@ import type {
   SanityPromotion,
   SanityTestimonial,
   SanityHeroStat,
+  SanityFAQ,
+  SanitySiteSettings,
 } from "@/sanity/lib/queries";
 
 /* ═══════════════════════════════════════════════════
@@ -109,7 +111,12 @@ function useScrollAnimation(deps: unknown[] = []) {
 /* ═══════════════════════════════════════════════════
    CONSTANTS
    ═══════════════════════════════════════════════════ */
-const INSTAGRAM_URL = "https://instagram.com/halahelloo";
+const DEFAULT_INSTAGRAM_URL = "https://instagram.com/halahello";
+const DEFAULT_WHATSAPP = "+963000000000";
+const DEFAULT_SUPPORT_EMAIL = "hello@halahello.com";
+function toWaLink(number: string) {
+  return `https://wa.me/${number.replace(/[^\d]/g, "")}`;
+}
 const DEFAULT_HERO_STATS: SanityHeroStat[] = [
   { value: "500+", valueAr: "+٥٠٠", label: "Happy Customers", labelAr: "عميلة سعيدة" },
   { value: "2",    valueAr: "٢",    label: "Collections",     labelAr: "مجموعة" },
@@ -135,15 +142,22 @@ export interface HomeClientProps {
   dbProducts: DbProduct[];
   testimonials: SanityTestimonial[];
   heroStats: SanityHeroStat[];
+  faqs: SanityFAQ[];
+  settings: SanitySiteSettings | null;
 }
 
 /* ════════════════════════════════════════════════════════════
    HOME CLIENT COMPONENT
    ════════════════════════════════════════════════════════════ */
-export default function HomeClient({ banners, promotions, sanityProducts, dbProducts, testimonials, heroStats: rawHeroStats }: HomeClientProps) {
+export default function HomeClient({ banners, promotions, sanityProducts, dbProducts, testimonials, heroStats: rawHeroStats, faqs, settings }: HomeClientProps) {
   const [lang, setLang] = useState<Lang>("en");
   const [activeTestimonial, setActiveTestimonial] = useState(0);
+  const [activeFaq, setActiveFaq] = useState<string | null>(null);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+
+  const instagramUrl = settings?.instagramUrl || DEFAULT_INSTAGRAM_URL;
+  const whatsappLink = toWaLink(settings?.whatsappNumber || DEFAULT_WHATSAPP);
+  const supportEmail = settings?.supportEmail || DEFAULT_SUPPORT_EMAIL;
   const [activeWhyUs, setActiveWhyUs] = useState<number | null>(null);
   const [customOrderLoading, setCustomOrderLoading] = useState(false);
   const [contactLoading, setContactLoading] = useState(false);
@@ -620,7 +634,7 @@ export default function HomeClient({ banners, promotions, sanityProducts, dbProd
       </section>
 
       {/* 7. INSTAGRAM — lazy loaded, no SSR */}
-      <InstagramFeedSection isRtl={isRtl} T={T} />
+      <InstagramFeedSection isRtl={isRtl} T={T} instagramUrl={instagramUrl} />
 
       {/* 8. TESTIMONIALS */}
       <section id="testimonials" style={{ padding: "110px 24px", background: "var(--bg-primary)" }}>
@@ -674,6 +688,43 @@ export default function HomeClient({ banners, promotions, sanityProducts, dbProd
         </div>
       </section>
 
+      {/* 9.5 FAQ */}
+      {faqs.length > 0 && (
+        <section id="faq" style={{ padding: "110px 24px", background: "var(--bg-secondary)" }}>
+          <div style={{ maxWidth: 800, margin: "0 auto" }}>
+            <div style={{ textAlign: "center", marginBottom: 56 }}>
+              <span className="fade-in-section section-tag">{T("faqTag")}</span>
+              <h2 className="fade-in-section" style={{ fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-heading)", fontSize: "clamp(2rem,4vw,3rem)", fontWeight: 600, marginBottom: 12, letterSpacing: "-0.02em" }}>
+                {T("faqTitle1")} <span style={{ fontStyle: isRtl ? "normal" : "italic", color: "var(--accent)" }}>{T("faqTitle2")}</span>
+              </h2>
+              <div className="section-divider" />
+            </div>
+            <div className="fade-in-section" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {faqs.map((faq) => {
+                const isOpen = activeFaq === faq._id;
+                const question = isRtl && faq.questionAr ? faq.questionAr : faq.question;
+                const answer = isRtl && faq.answerAr ? faq.answerAr : faq.answer;
+                return (
+                  <div key={faq._id} className="luxury-card" style={{ padding: 0, overflow: "hidden" }}>
+                    <button
+                      onClick={() => setActiveFaq(isOpen ? null : faq._id)}
+                      aria-expanded={isOpen}
+                      style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, padding: "22px 28px", background: "none", border: "none", cursor: "pointer", textAlign: isRtl ? "right" : "left", fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-heading)", fontSize: "1.05rem", fontWeight: 600, color: "var(--text-primary)" }}
+                    >
+                      <span>{question}</span>
+                      <span style={{ flexShrink: 0, transition: "transform 0.3s ease", transform: isOpen ? "rotate(45deg)" : "rotate(0deg)", fontSize: "1.3rem", color: "var(--accent)" }}>+</span>
+                    </button>
+                    <div style={{ maxHeight: isOpen ? 400 : 0, overflow: "hidden", transition: "max-height 0.35s ease" }}>
+                      <p style={{ padding: "0 28px 24px", color: "var(--text-secondary)", lineHeight: 1.8, fontSize: "0.95rem" }}>{answer}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* 10. CONTACT */}
       <section id="contact" style={{ padding: "110px 24px", maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ textAlign: "center", marginBottom: 52 }}>
@@ -699,59 +750,16 @@ export default function HomeClient({ banners, promotions, sanityProducts, dbProd
             <div className="luxury-card" style={{ padding: "32px" }}>
               <h3 style={{ fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-heading)", fontSize: "1.2rem", marginBottom: 12 }}>{T("contactConnectTitle")}</h3>
               <p style={{ color: "var(--text-secondary)", lineHeight: 1.8, marginBottom: 20, fontSize: "0.95rem" }}>{T("contactConnectDesc")}</p>
-              <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 10, color: "var(--accent)", fontWeight: 600, textDecoration: "none", fontSize: "0.95rem", transition: "opacity var(--transition-base)" }} onMouseEnter={(e) => ((e.target as HTMLElement).style.opacity = "0.7")} onMouseLeave={(e) => ((e.target as HTMLElement).style.opacity = "1")}><InstagramIcon /> @halahelloo</a>
+              <a href={instagramUrl} target="_blank" rel="noopener noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 10, color: "var(--accent)", fontWeight: 600, textDecoration: "none", fontSize: "0.95rem", transition: "opacity var(--transition-base)" }} onMouseEnter={(e) => ((e.target as HTMLElement).style.opacity = "0.7")} onMouseLeave={(e) => ((e.target as HTMLElement).style.opacity = "1")}><InstagramIcon /> @{instagramUrl.replace(/^https?:\/\/(www\.)?instagram\.com\//i, "").replace(/\/$/, "")}</a>
             </div>
-            <a href="https://wa.me/1234567890" target="_blank" rel="noopener noreferrer" className="whatsapp-btn" style={{ justifyContent: "center" }}><WhatsAppIcon />{T("contactWhatsapp")}</a>
+            <a href={whatsappLink} target="_blank" rel="noopener noreferrer" className="whatsapp-btn" style={{ justifyContent: "center" }}><WhatsAppIcon />{T("contactWhatsapp")}</a>
             <div className="luxury-card" style={{ padding: "32px" }}>
               <h3 style={{ fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-heading)", fontSize: "1.2rem", marginBottom: 12 }}>{T("contactInfoTitle")}</h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, color: "var(--text-secondary)", fontSize: "0.95rem" }}><p>{T("contactInfo1")}</p><p>{T("contactInfo2")}</p><p>{T("contactInfo3")}</p></div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, color: "var(--text-secondary)", fontSize: "0.95rem" }}><p>{T("contactInfo1")}</p><p>📧 {supportEmail}</p><p>{T("contactInfo3")}</p></div>
             </div>
           </div>
         </div>
       </section>
-
-      {/* 11. FOOTER */}
-      <footer style={{ background: "var(--footer-bg)", color: "var(--footer-text)", padding: "64px 24px 32px" }}>
-        <div style={{ height: 3, background: "var(--gradient-luxury)", marginBottom: 64, maxWidth: 1200, margin: "0 auto 64px", borderRadius: "var(--radius-full)" }} />
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 48 }} className="footer-grid">
-          <div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 2, marginBottom: 16 }}><span style={{ fontFamily: "var(--font-heading)", fontSize: "2rem", fontWeight: 600 }}>Hala</span><span style={{ fontFamily: "var(--font-heading)", fontSize: "2rem", fontWeight: 400, fontStyle: "italic", color: "var(--accent)" }}>hello</span></div>
-            <p style={{ opacity: 0.6, lineHeight: 1.8, fontSize: "0.9rem", maxWidth: 280 }}>{T("footerDesc")}</p>
-            <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
-              <a href={INSTAGRAM_URL} target="_blank" rel="noopener noreferrer" aria-label="Instagram" style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--footer-text)", transition: "all var(--transition-base)", textDecoration: "none" }} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "var(--accent)"; (e.currentTarget as HTMLElement).style.borderColor = "var(--accent)"; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)"; }}><InstagramIcon /></a>
-              <a href="https://wa.me/1234567890" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp" style={{ width: 40, height: 40, borderRadius: "50%", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--footer-text)", transition: "all var(--transition-base)", textDecoration: "none" }} onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "#25D366"; (e.currentTarget as HTMLElement).style.borderColor = "#25D366"; }} onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)"; }}><WhatsAppIcon /></a>
-            </div>
-          </div>
-          <div>
-            <h4 style={{ fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.18em", textTransform: isRtl ? "none" : "uppercase", marginBottom: 24, opacity: 0.5, fontFamily: "var(--font-body)" }}>{T("footerExplore")}</h4>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {([[T("footerHijabLink"), "hijab-products"], [T("footerPlexiLink"), "plexi-products"], [T("footerCustomLink"), "custom-orders"], [T("footerStoryLink"), "story"]] as [string, string][]).map(([label, id]) => (
-                <button key={id} onClick={() => scrollTo(id)} style={{ background: "none", border: "none", color: "var(--footer-text)", opacity: 0.65, cursor: "pointer", fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-body)", fontSize: "0.9rem", textAlign: isRtl ? "right" : "left", padding: 0, transition: "opacity var(--transition-base)" }} onMouseEnter={(e) => ((e.target as HTMLElement).style.opacity = "1")} onMouseLeave={(e) => ((e.target as HTMLElement).style.opacity = "0.65")}>{label}</button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <h4 style={{ fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.18em", textTransform: isRtl ? "none" : "uppercase", marginBottom: 24, opacity: 0.5, fontFamily: "var(--font-body)" }}>{T("footerConnect")}</h4>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[["Instagram", INSTAGRAM_URL], ["WhatsApp", "https://wa.me/1234567890"], [isRtl ? "البريد" : "Email", "mailto:hello@halahello.com"]].map(([label, href]) => (
-                <a key={label} href={href} target="_blank" rel="noopener noreferrer" style={{ color: "var(--footer-text)", opacity: 0.65, textDecoration: "none", fontSize: "0.9rem", transition: "opacity var(--transition-base)" }} onMouseEnter={(e) => ((e.target as HTMLElement).style.opacity = "1")} onMouseLeave={(e) => ((e.target as HTMLElement).style.opacity = "0.65")}>{label}</a>
-              ))}
-            </div>
-          </div>
-          <div>
-            <h4 style={{ fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.18em", textTransform: isRtl ? "none" : "uppercase", marginBottom: 24, opacity: 0.5, fontFamily: "var(--font-body)" }}>{T("footerSupport")}</h4>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {[T("footerContactUs"), T("footerShipping"), T("footerReturns"), T("footerFaq")].map((label) => (
-                <button key={label} onClick={() => scrollTo("contact")} style={{ background: "none", border: "none", color: "var(--footer-text)", opacity: 0.65, cursor: "pointer", fontFamily: isRtl ? "var(--font-arabic)" : "var(--font-body)", fontSize: "0.9rem", textAlign: isRtl ? "right" : "left", padding: 0, transition: "opacity var(--transition-base)" }} onMouseEnter={(e) => ((e.target as HTMLElement).style.opacity = "1")} onMouseLeave={(e) => ((e.target as HTMLElement).style.opacity = "0.65")}>{label}</button>
-              ))}
-            </div>
-          </div>
-        </div>
-        <div style={{ maxWidth: 1200, margin: "52px auto 0", paddingTop: 28, borderTop: "1px solid rgba(250,247,245,0.08)", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}>
-          <p style={{ opacity: 0.45, fontSize: "0.82rem" }}>{T("footerCopyright")}</p>
-          <p style={{ opacity: 0.35, fontSize: "0.78rem", fontStyle: "italic" }}>{T("footerDesigned")}</p>
-        </div>
-      </footer>
 
       {/* RESPONSIVE STYLES */}
       <style jsx>{`
@@ -760,7 +768,6 @@ export default function HomeClient({ banners, promotions, sanityProducts, dbProd
         .product-grid { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
         .insta-grid { grid-template-columns: repeat(3, 1fr); }
         .contact-grid { grid-template-columns: 1fr 1fr; }
-        .footer-grid { grid-template-columns: 2fr 1fr 1fr 1fr; }
         .custom-form-grid { grid-template-columns: 1fr 1fr; }
         @media (max-width: 768px) {
           .brand-story-grid { grid-template-columns: 1fr !important; gap: 60px !important; }
@@ -768,12 +775,10 @@ export default function HomeClient({ banners, promotions, sanityProducts, dbProd
           .product-grid { grid-template-columns: 1fr 1fr !important; gap: 16px !important; }
           .insta-grid { grid-template-columns: repeat(3,1fr) !important; gap: 8px !important; }
           .contact-grid { grid-template-columns: 1fr !important; }
-          .footer-grid { grid-template-columns: 1fr 1fr !important; }
           .custom-form-grid { grid-template-columns: 1fr !important; }
         }
         @media (max-width: 480px) {
           .product-grid { grid-template-columns: 1fr !important; }
-          .footer-grid { grid-template-columns: 1fr !important; }
           .insta-grid { grid-template-columns: repeat(2,1fr) !important; }
         }
       `}</style>

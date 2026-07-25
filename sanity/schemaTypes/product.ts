@@ -39,9 +39,10 @@ export const productType = defineType({
     }),
     defineField({
       name: 'category',
-      title: 'Category',
+      title: 'Division',
       type: 'string',
       group: 'content',
+      description: 'Which top-level brand line this product belongs to',
       options: {
         list: [
           { title: 'Hijab by Halahello', value: 'hijab' },
@@ -50,6 +51,20 @@ export const productType = defineType({
         layout: 'radio',
       },
       validation: (Rule) => Rule.required(),
+    }),
+    defineField({
+      name: 'subCategory',
+      title: 'Category',
+      type: 'reference',
+      group: 'content',
+      description: 'The specific category within the division above (e.g. Silk Scarves, Keychains). Only categories matching the selected division are shown.',
+      to: [{ type: 'productCategory' }],
+      options: {
+        filter: ({ document }) => {
+          const division = (document as { category?: string })?.category
+          return division ? { filter: 'division == $division', params: { division } } : {}
+        },
+      },
     }),
     defineField({
       name: 'description',
