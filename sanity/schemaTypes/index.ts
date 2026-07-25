@@ -5,6 +5,7 @@ import { promotionType } from './promotion'
 import { homepageBannerType } from './homepageBanner'
 import { testimonialType } from './testimonial'
 import { siteSettingsType } from './siteSettings'
+import { themeSettingsType } from './themeSettings'
 import { faqType } from './faq'
 import { shippingSettingsType } from './shippingSettings'
 import { orderType } from './order'
@@ -28,6 +29,7 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     customRequestType,
     // Singletons
     siteSettingsType,
+    themeSettingsType,
     shippingSettingsType,
   ],
 }

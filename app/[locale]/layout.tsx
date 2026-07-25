@@ -8,7 +8,34 @@ import { ToastProvider } from "@/components/ui/Toast";
 import { WishlistProvider } from "@/components/product/WishlistContext";
 import { ENABLE_EXTRA_THEME_TOKENS } from "@/lib/theme-config";
 import { AnnouncementBar, ANNOUNCEMENT_BAR_HEIGHT } from "@/components/layout/AnnouncementBar";
-import { getSiteSettings } from "@/sanity/lib/queries";
+import { getSiteSettings, getThemeSettings, type SanityThemeSettings } from "@/sanity/lib/queries";
+
+/* ─── Admin-editable color overrides ───
+   Maps Sanity themeSettings fields to the CSS custom properties they
+   control (see app/globals.css). Only fields the admin actually set
+   are applied — everything else falls through to the CSS defaults. */
+const THEME_CSS_VARS: Record<keyof Omit<SanityThemeSettings, "_id" | "enableExtras">, string> = {
+  bgPrimary: "--bg-primary",
+  bgSecondary: "--bg-secondary",
+  accent: "--accent",
+  accentLight: "--accent-light",
+  accentDark: "--accent-dark",
+  textPrimary: "--text-primary",
+  textSecondary: "--text-secondary",
+  highlight: "--highlight",
+  footerBg: "--footer-bg",
+  footerText: "--footer-text",
+};
+
+function buildThemeStyle(theme: SanityThemeSettings | null): React.CSSProperties {
+  if (!theme) return {};
+  const style: Record<string, string> = {};
+  for (const [key, cssVar] of Object.entries(THEME_CSS_VARS)) {
+    const value = theme[key as keyof typeof THEME_CSS_VARS];
+    if (typeof value === "string" && value.trim()) style[cssVar] = value.trim();
+  }
+  return style as React.CSSProperties;
+}
 
 /* ─── Premium Font Stack ─── */
 
@@ -67,16 +94,20 @@ export default async function RootLayout({
   params: Promise<{ locale: string }>;
 }>) {
   const { locale } = await params;
-  const settings = await getSiteSettings().catch(() => null);
+  const [settingsResult, themeResult] = await Promise.allSettled([getSiteSettings(), getThemeSettings()]);
+  const settings = settingsResult.status === "fulfilled" ? settingsResult.value : null;
+  const theme = themeResult.status === "fulfilled" ? themeResult.value : null;
   const announcementText = settings?.announcementBarActive
     ? (locale === "ar" ? settings.announcementBarAr : settings.announcementBar)
     : null;
+  const enableExtras = theme?.enableExtras ?? ENABLE_EXTRA_THEME_TOKENS;
 
   return (
     <html
       lang={locale}
       suppressHydrationWarning
-      data-theme-extras={ENABLE_EXTRA_THEME_TOKENS ? "on" : "off"}
+      data-theme-extras={enableExtras ? "on" : "off"}
+      style={buildThemeStyle(theme)}
       className={`${cormorant.variable} ${dmSans.variable} ${tajawal.variable}`}
     >
       <body>

@@ -20,6 +20,11 @@ export const structure: StructureResolver = (S) =>
         .child(S.documentTypeList('product').title('Products')),
 
       S.listItem()
+        .title('Product Categories')
+        .icon(() => '🗂️')
+        .child(S.documentTypeList('productCategory').title('Product Categories')),
+
+      S.listItem()
         .title('Promotions & Offers')
         .icon(() => '🏷️')
         .child(S.documentTypeList('promotion').title('Promotions')),
@@ -91,6 +96,16 @@ export const structure: StructureResolver = (S) =>
             .schemaType('siteSettings')
             .documentId('siteSettings')
             .title('Site Settings')
+        ),
+
+      S.listItem()
+        .title('Theme / Colors')
+        .icon(() => '🎨')
+        .child(
+          S.document()
+            .schemaType('themeSettings')
+            .documentId('themeSettings')
+            .title('Theme / Colors')
         ),
 
       S.listItem()

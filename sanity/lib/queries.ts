@@ -154,6 +154,21 @@ export interface SanitySiteSettings {
   heroStats?: SanityHeroStat[]
 }
 
+export interface SanityThemeSettings {
+  _id: string
+  bgPrimary?: string
+  bgSecondary?: string
+  accent?: string
+  accentLight?: string
+  accentDark?: string
+  textPrimary?: string
+  textSecondary?: string
+  highlight?: string
+  footerBg?: string
+  footerText?: string
+  enableExtras?: boolean
+}
+
 export interface SanityShippingSettings {
   _id: string
   freeShippingThreshold: number
@@ -372,6 +387,14 @@ export async function getSiteSettings(): Promise<SanitySiteSettings | null> {
     ...raw,
     logoUrl: raw.logo ? urlFor(raw.logo).width(400).auto('format').url() : undefined,
   }
+}
+
+export async function getThemeSettings(): Promise<SanityThemeSettings | null> {
+  const query = `*[_type == "themeSettings"][0] {
+    _id, bgPrimary, bgSecondary, accent, accentLight, accentDark,
+    textPrimary, textSecondary, highlight, footerBg, footerText, enableExtras
+  }`
+  return client.fetch(query)
 }
 
 export async function getShippingSettings(): Promise<SanityShippingSettings | null> {
