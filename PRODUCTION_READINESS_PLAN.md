@@ -99,7 +99,7 @@ guard so it can't come back.
 **Theme:** Today, a completed purchase either charges the wrong amount or
 can't be fulfilled. These are the money-and-goods blockers.
 
-### 1.1 — Fix the Stripe currency mismatch `[ ]` — **M**
+### 1.1 — Fix the Stripe currency mismatch `[x]` — **M**
 - **Why:** `const stripeCurrency = 'usd'; // Adjust to real currency` combined
   with `unit_amount: priceAtPurchase * 100`, while prices are authored in SYP.
   A 50,000 SYP item (~$4) is charged as **$50,000 USD**. Chargebacks, fraud
@@ -107,7 +107,12 @@ can't be fulfilled. These are the money-and-goods blockers.
 - **Files:** `app/api/checkout/order/route.ts` (~line 227)
 - **Fix:** Decide the pricing model explicitly (see decision note below), then
   make currency a single validated source of truth rather than a literal.
-- **⚠ Product decision required — do not guess:**
+- **✅ Decision made:** option (b), implemented without dual data entry —
+  products stay priced once in SYP, an admin sets **SYP per 1 USD** in Sanity
+  (Currency & Exchange Rate), and USD is derived from it. Changing the rate
+  re-prices the catalogue instantly. The rate is snapshotted onto each order
+  so historical orders and refunds never shift.
+- **Original options considered:**
   - **(a)** Prices are SYP → Stripe needs a SYP→USD conversion rate, and Stripe
     does not settle SYP. Requires a rate source and a rounding policy.
   - **(b)** Stripe customers are charged in USD from a separate USD price field
@@ -133,7 +138,7 @@ can't be fulfilled. These are the money-and-goods blockers.
 - **Done when:** A completed order in both payment paths stores a full,
   immutable shipping address that renders in the admin order view.
 
-### 1.3 — Guard against a currency/price-model regression `[ ]` — **S**
+### 1.3 — Guard against a currency/price-model regression `[x]` — **S**
 - **Why:** 1.1 is easy to silently undo.
 - **Done when:** A unit test asserts the Stripe line-item amount for a known
   product price, and fails if the currency literal changes.

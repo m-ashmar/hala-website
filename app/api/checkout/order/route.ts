@@ -37,6 +37,8 @@ import { syncOrderToSanity } from '@/lib/services/sanity-sync.service';
 import { createCheckoutDraft, markDraftStripeSession } from '@/lib/repositories/checkout-draft.repository';
 import { createRateLimiter } from '@/lib/rate-limit';
 import { validateCsrfOrigin, getClientIp } from '@/lib/security';
+import { getCurrencySettings } from '@/sanity/lib/queries';
+import { sypToUsdCents, STRIPE_MIN_USD_CENTS } from '@/lib/currency';
 
 // 3 checkout attempts per IP per minute — prevents brute-force stock checks
 const checkoutLimiter = createRateLimiter({ limit: 3, windowMs: 60_000 });
@@ -207,7 +209,59 @@ export async function POST(req: NextRequest) {
 
       const checkoutToken = randomUUID();
 
-      // Save draft BEFORE going to Stripe
+      // ── Currency conversion ────────────────────────────────────────────
+      // Products are priced in SYP; Stripe settles in USD. The rate is set by
+      // an admin in Sanity and converted here, server-side only. Previously
+      // this charged the raw SYP figure as USD — a 50,000 SYP item became a
+      // $50,000 charge.
+      const stripeCurrency = 'usd';
+      let sypPerUsd: number;
+      try {
+        const currencySettings = await getCurrencySettings();
+        const rate = currencySettings?.sypPerUsd;
+        // Throws if unset/invalid — refusing the checkout is far safer than
+        // guessing a rate and charging the wrong amount.
+        sypToUsdCents(1, rate as number);
+        sypPerUsd = rate as number;
+      } catch (rateErr) {
+        console.error('[checkout] Exchange rate unavailable:', rateErr);
+        return NextResponse.json(
+          {
+            error:
+              'Card payment is temporarily unavailable. Please try the other payment method or contact us.',
+          },
+          { status: 503 }
+        );
+      }
+
+      const stripeLineItems = validatedItems.map((item) => ({
+        price_data: {
+          currency: stripeCurrency,
+          product_data: {
+            name: item.snapshotTitle ?? item.sanityId,
+          },
+          // Convert the whole line, then divide, so quantity never compounds
+          // a sub-cent rounding error.
+          unit_amount: Math.round(
+            sypToUsdCents(item.priceAtPurchase * item.quantity, sypPerUsd) / item.quantity
+          ),
+        },
+        quantity: item.quantity,
+      }));
+
+      const chargedAmountCents = sypToUsdCents(totalAmount, sypPerUsd);
+      if (chargedAmountCents < STRIPE_MIN_USD_CENTS) {
+        return NextResponse.json(
+          {
+            error: `Order total is below the minimum this payment method accepts (${
+              STRIPE_MIN_USD_CENTS / 100
+            } USD). Please add more items or use the other payment method.`,
+          },
+          { status: 422 }
+        );
+      }
+
+      // Save draft BEFORE going to Stripe, snapshotting the rate actually used.
       const draft = await createCheckoutDraft({
         checkoutToken,
         userId,
@@ -222,23 +276,14 @@ export async function POST(req: NextRequest) {
         totalAmount,
         currency,
         expiresAt,
+        chargedAmount: chargedAmountCents / 100,
+        chargedCurrency: stripeCurrency.toUpperCase(),
+        exchangeRate: sypPerUsd,
       });
-
-      const stripeCurrency = 'usd'; // Adjust to real currency
-      const stripeLineItems = validatedItems.map(item => ({
-        price_data: {
-          currency: stripeCurrency,
-          product_data: {
-            name: item.snapshotTitle ?? item.sanityId,
-          },
-          unit_amount: Math.round(item.priceAtPurchase * 100),
-        },
-        quantity: item.quantity,
-      }));
 
       let stripeDiscounts: { coupon: string }[] | undefined;
       if (discountAmount > 0) {
-        const discountInCents = Math.round(discountAmount * 100);
+        const discountInCents = sypToUsdCents(discountAmount, sypPerUsd);
         try {
           const stripeCoupon = await getStripe().coupons.create({
             amount_off: discountInCents,

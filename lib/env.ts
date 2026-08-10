@@ -28,6 +28,8 @@ const envSchema = z
 
     // ── Core infrastructure ──────────────────────────────────────────────
     DATABASE_URL: z.string().url(),
+    // Referenced by prisma/schema.prisma for migrations (non-pooled connection).
+    DIRECT_URL: z.string().url().optional(),
     BLOB_READ_WRITE_TOKEN: prodRequired('BLOB_READ_WRITE_TOKEN'),
 
     // ── Auth ─────────────────────────────────────────────────────────────

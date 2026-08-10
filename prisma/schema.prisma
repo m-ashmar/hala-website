@@ -166,6 +166,14 @@ model Order {
   totalAmount   Float
   currency      String        @default("SYP")
 
+  // What the customer was actually charged, when it differs from `currency`.
+  // Products are priced in SYP; card payments settle in USD. These are a
+  // snapshot: editing the exchange rate later must never restate an existing
+  // order's value, or refunds and accounting drift silently.
+  chargedAmount   Float? // amount actually captured, in `chargedCurrency`
+  chargedCurrency String? // e.g. "USD"
+  exchangeRate    Float? // SYP per 1 USD, as it stood at purchase time
+
   referenceCode         String? @unique // ShamCash reference (e.g. HL-20260707-A3F2)
   stripeSessionId       String? @unique
   stripePaymentIntentId String? @unique
@@ -344,6 +352,11 @@ model CheckoutDraft {
   totalAmount    Float
   currency       String              @default("SYP")
   shippingAmount Float               @default(0)
+
+  // Snapshot of the conversion used for the Stripe charge (see Order).
+  chargedAmount   Float?
+  chargedCurrency String?
+  exchangeRate    Float?
 
   // Stripe linkage — set after session creation
   stripeSessionId String?            @unique

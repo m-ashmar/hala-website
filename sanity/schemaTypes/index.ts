@@ -6,6 +6,7 @@ import { homepageBannerType } from './homepageBanner'
 import { testimonialType } from './testimonial'
 import { siteSettingsType } from './siteSettings'
 import { themeSettingsType } from './themeSettings'
+import { currencySettingsType } from './currencySettings'
 import { faqType } from './faq'
 import { shippingSettingsType } from './shippingSettings'
 import { orderType } from './order'
@@ -30,6 +31,7 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     // Singletons
     siteSettingsType,
     themeSettingsType,
+    currencySettingsType,
     shippingSettingsType,
   ],
 }

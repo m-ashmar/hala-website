@@ -61,6 +61,11 @@ export async function fulfillStripeCheckout(
         customerNote: draft.customerNote,
         couponId: draft.couponId,
         discountAmount: draft.discountAmount,
+        // Carry the conversion snapshot through so the order records what was
+        // actually charged, immune to later exchange-rate edits.
+        chargedAmount: draft.chargedAmount,
+        chargedCurrency: draft.chargedCurrency,
+        exchangeRate: draft.exchangeRate,
         stripeSessionId,
         stripePaymentIntentId,
         paidAt: new Date(),

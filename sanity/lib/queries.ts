@@ -169,6 +169,14 @@ export interface SanityThemeSettings {
   enableExtras?: boolean
 }
 
+export interface SanityCurrencySettings {
+  _id: string
+  /** How many SYP equal 1 USD, e.g. 13000. */
+  sypPerUsd: number
+  showUsdPrices?: boolean
+  rateNote?: string
+}
+
 export interface SanityShippingSettings {
   _id: string
   freeShippingThreshold: number
@@ -393,6 +401,13 @@ export async function getThemeSettings(): Promise<SanityThemeSettings | null> {
   const query = `*[_type == "themeSettings"][0] {
     _id, bgPrimary, bgSecondary, accent, accentLight, accentDark,
     textPrimary, textSecondary, highlight, footerBg, footerText, enableExtras
+  }`
+  return client.fetch(query)
+}
+
+export async function getCurrencySettings(): Promise<SanityCurrencySettings | null> {
+  const query = `*[_type == "currencySettings"][0] {
+    _id, sypPerUsd, showUsdPrices, rateNote
   }`
   return client.fetch(query)
 }

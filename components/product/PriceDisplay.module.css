@@ -37,6 +37,14 @@
   display: block;
 }
 
+/* Converted card price, derived from the SYP price via the admin-set rate */
+.usd {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  opacity: 0.85;
+}
+
 /* Sizes */
 .sm .price  { font-size: 0.9rem; }
 .sm .original { font-size: 0.75rem; }

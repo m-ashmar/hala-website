@@ -109,6 +109,16 @@ export const structure: StructureResolver = (S) =>
         ),
 
       S.listItem()
+        .title('Currency & Exchange Rate')
+        .icon(() => '💱')
+        .child(
+          S.document()
+            .schemaType('currencySettings')
+            .documentId('currencySettings')
+            .title('Currency & Exchange Rate')
+        ),
+
+      S.listItem()
         .title('Shipping Settings')
         .icon(() => '🚚')
         .child(

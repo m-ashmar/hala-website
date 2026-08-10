@@ -17,6 +17,11 @@ export interface CreateCheckoutDraftInput {
   currency: string;
   shippingAmount?: number;
   expiresAt: Date;
+  /** Amount actually charged, in `chargedCurrency` (set for card payments). */
+  chargedAmount?: number;
+  chargedCurrency?: string;
+  /** SYP per 1 USD at purchase time — snapshotted so later rate edits don't restate this order. */
+  exchangeRate?: number;
 }
 
 /**
@@ -39,6 +44,9 @@ export async function createCheckoutDraft(input: CreateCheckoutDraftInput) {
       totalAmount: input.totalAmount,
       currency: input.currency,
       shippingAmount: input.shippingAmount ?? 0,
+      chargedAmount: input.chargedAmount,
+      chargedCurrency: input.chargedCurrency,
+      exchangeRate: input.exchangeRate,
       expiresAt: input.expiresAt,
       status: 'PENDING',
     },
