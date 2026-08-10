@@ -16,6 +16,7 @@ import { logger } from '@/lib/logger';
 import { createPendingOrder, generateReferenceCode } from '@/lib/repositories/order.repository';
 import { notifyOrderConfirmed } from '@/lib/services/order-notification.service';
 import { fulfillCustomRequestPayment } from '@/lib/services/custom-request-checkout.service';
+import { reportError } from '@/lib/monitoring';
 
 export const dynamic = 'force-dynamic';
 
@@ -91,7 +92,15 @@ export async function POST(req: NextRequest) {
 
         logger.warn('[Stripe Webhook] checkout.session.completed missing checkoutToken or orderId in metadata');
       } catch (err) {
-        logger.error({ err, sessionId: session.id }, '[Stripe Webhook] Failed to confirm order');
+        // A payment succeeded at Stripe but we failed to record it — the
+        // single highest-consequence failure in the system. Must be alerted
+        // on, not merely logged.
+        reportError(err, {
+          scope: 'stripe.webhook.confirm',
+          sessionId: session.id,
+          checkoutToken,
+          legacyOrderId,
+        });
         return NextResponse.json({ error: 'Failed to confirm order in DB' }, { status: 500 });
       }
       break;

@@ -22,6 +22,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { getExpiredPendingOrders, cancelOrder } from '@/lib/repositories/order.repository';
 import { logger } from '@/lib/logger';
+import { reportError } from '@/lib/monitoring';
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -67,7 +68,7 @@ export async function GET(req: NextRequest) {
       failed: failed.length,
     });
   } catch (err) {
-    logger.error({ err }, '[Cron/expire-orders] Run failed');
+    reportError(err, { scope: 'cron.expireOrders' });
     return NextResponse.json({ error: 'Cleanup failed' }, { status: 500 });
   }
 }

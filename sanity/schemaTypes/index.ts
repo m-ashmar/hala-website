@@ -8,6 +8,7 @@ import { siteSettingsType } from './siteSettings'
 import { themeSettingsType } from './themeSettings'
 import { currencySettingsType } from './currencySettings'
 import { faqType } from './faq'
+import { legalPageType } from './legalPage'
 import { shippingSettingsType } from './shippingSettings'
 import { orderType } from './order'
 import { couponType } from './coupon'
@@ -23,6 +24,7 @@ export const schema: { types: SchemaTypeDefinition[] } = {
     homepageBannerType,
     testimonialType,
     faqType,
+    legalPageType,
     // Business operations (synced from PostgreSQL)
     orderType,
     couponType,

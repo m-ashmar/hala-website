@@ -169,6 +169,16 @@ export interface SanityThemeSettings {
   enableExtras?: boolean
 }
 
+export interface SanityLegalPage {
+  _id: string
+  slug: 'privacy' | 'terms' | 'refund-policy'
+  title: string
+  titleAr?: string
+  body: string
+  bodyAr?: string
+  lastUpdated: string
+}
+
 export interface SanityCurrencySettings {
   _id: string
   /** How many SYP equal 1 USD, e.g. 13000. */
@@ -410,6 +420,13 @@ export async function getThemeSettings(): Promise<SanityThemeSettings | null> {
     textPrimary, textSecondary, highlight, footerBg, footerText, enableExtras
   }`
   return client.fetch(query)
+}
+
+export async function getLegalPage(slug: string): Promise<SanityLegalPage | null> {
+  const query = `*[_type == "legalPage" && slug == $slug][0] {
+    _id, slug, title, titleAr, body, bodyAr, lastUpdated
+  }`
+  return client.fetch(query, { slug })
 }
 
 export async function getCurrencySettings(): Promise<SanityCurrencySettings | null> {

@@ -13,7 +13,7 @@ import prisma, { type TxClient } from '@/lib/prisma';
 import type { CheckoutPayload } from '@/types/cart';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { recordCouponUsage } from './coupon.repository';
-import { logger } from '@/lib/logger';
+import { reportWarning } from '@/lib/monitoring';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -277,10 +277,11 @@ export async function confirmOrderPayment(orderId: string, stripePaymentIntentId
       if (outcome === 'LIMIT_EXCEEDED') {
         // Not fatal — the customer has already paid the discounted price and
         // the order must stand. Logged loudly so it can be reconciled.
-        logger.warn(
-          { orderId: order.id, couponId: order.couponId },
-          '[Coupon] Redeemed past maxUses — coupon over-issued, needs review'
-        );
+        reportWarning('Coupon redeemed past maxUses — over-issued, needs review', {
+          scope: 'coupon.overIssued',
+          orderId: order.id,
+          couponId: order.couponId,
+        });
       }
     }
 

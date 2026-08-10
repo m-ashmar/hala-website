@@ -291,7 +291,7 @@ correction. The business cannot actually run on this.
 - **Why:** Deprecated in Next 16; warns on every build.
 - **Done when:** Build is warning-free and route protection still works.
 
-### 3.10 — Error monitoring `[ ]` — **S**
+### 3.10 — Error monitoring `[x]` — **S**
 - **Why:** No Sentry or equivalent. Production failures are invisible; today
   errors land in `console.error` and vanish.
 - **Done when:** Unhandled server errors surface in a dashboard with alerts.
@@ -300,7 +300,7 @@ correction. The business cannot actually run on this.
 
 ## Block 4 — Trust, compliance & discoverability
 
-### 4.1 — Privacy Policy & Terms pages `[ ]` — **S**
+### 4.1 — Privacy Policy & Terms pages `[x]` — **S**
 - **Why:** The footer **links to `/privacy` and `/terms` and both 404.** Also a
   Stripe onboarding requirement, and expected by customers handing over card
   details.
@@ -308,11 +308,11 @@ correction. The business cannot actually run on this.
 - **Note:** Needs real legal content — placeholder text is not adequate.
 - **Done when:** Both render bilingually and the footer links resolve.
 
-### 4.2 — Refund & shipping policy `[ ]` — **S**
+### 4.2 — Refund & shipping policy `[x]` — **S**
 - **Why:** `product.returnPolicy` exists per-product but there's no site-level
   policy page. Required for payment-processor compliance.
 
-### 4.3 — `sitemap.ts` and `robots.ts` `[ ]` — **S**
+### 4.3 — `sitemap.ts` and `robots.ts` `[x]` — **S**
 - **Why:** Neither exists. A commercial storefront invisible to search is
   leaving its primary free acquisition channel on the table.
 - **Done when:** Both resolve and include localized product URLs.

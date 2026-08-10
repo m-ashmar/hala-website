@@ -17,6 +17,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { retryFailedNotifications } from '@/lib/services/order-notification.service';
 import { logger } from '@/lib/logger';
+import { reportError } from '@/lib/monitoring';
 
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
     logger.info({ attempted, recovered }, '[Cron/retry-notifications] Run complete');
     return NextResponse.json({ attempted, recovered });
   } catch (err) {
-    logger.error({ err }, '[Cron/retry-notifications] Run failed');
+    reportError(err, { scope: 'cron.retryNotifications' });
     return NextResponse.json({ error: 'Retry run failed' }, { status: 500 });
   }
 }

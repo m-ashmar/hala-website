@@ -41,6 +41,7 @@ import { createRateLimiter } from '@/lib/rate-limit';
 import { validateCsrfOrigin, getClientIp } from '@/lib/security';
 import { getCurrencySettings } from '@/sanity/lib/queries';
 import { sypToUsdCents, STRIPE_MIN_USD_CENTS } from '@/lib/currency';
+import { reportError } from '@/lib/monitoring';
 
 // 3 checkout attempts per IP per minute — prevents brute-force stock checks
 const checkoutLimiter = createRateLimiter({ limit: 3, windowMs: 60_000 });
@@ -387,7 +388,8 @@ export async function POST(req: NextRequest) {
       { status: 201 }
     );
   } catch (err) {
-    console.error('[POST /api/checkout/order]', err);
+    // A failed checkout is lost revenue and an invisible one is worse.
+    reportError(err, { scope: 'checkout.createOrder' });
     return NextResponse.json(
       { error: 'Failed to create order. Please try again.' },
       { status: 500 }

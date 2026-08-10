@@ -85,6 +85,11 @@ export const structure: StructureResolver = (S) =>
         .icon(() => '❓')
         .child(S.documentTypeList('faq').title('FAQ')),
 
+      S.listItem()
+        .title('Legal Pages')
+        .icon(() => '📄')
+        .child(S.documentTypeList('legalPage').title('Legal Pages')),
+
       S.divider(),
 
       // ── Singletons ────────────────────────────────────────────

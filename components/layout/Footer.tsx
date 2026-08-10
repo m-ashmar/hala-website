@@ -176,6 +176,9 @@ export function Footer({ locale = 'en', settings }: FooterProps) {
           <Link href={localise('/terms')} className={styles.legalLink}>
             {isAr ? 'الشروط والأحكام' : 'Terms'}
           </Link>
+          <Link href={localise('/refund-policy')} className={styles.legalLink}>
+            {isAr ? 'سياسة الاسترجاع' : 'Refunds'}
+          </Link>
         </div>
       </div>
     </footer>
