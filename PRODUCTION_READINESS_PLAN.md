@@ -37,7 +37,7 @@ guard so it can't come back.
 
 **Ship this before the site is publicly reachable.**
 
-### 0.1 — Fix the WhatsApp OTP authentication bypass `[ ]` — **S**
+### 0.1 — Fix the WhatsApp OTP authentication bypass `[x]` — **S**
 - **Why:** `isMockMode()` returns true whenever `WHATSAPP_API_TOKEN` /
   `WHATSAPP_PHONE_ID` are absent. In mock mode the OTP is hardcoded `123456`
   **and returned in the HTTP response body**. Deploy without WhatsApp creds and
@@ -52,7 +52,7 @@ guard so it can't come back.
   send-OTP route returns a 5xx and no code is issued; a fixed code can never be
   obtained from the API.
 
-### 0.2 — Fix the Sanity webhook fail-open `[ ]` — **S**
+### 0.2 — Fix the Sanity webhook fail-open `[x]` — **S**
 - **Why:** `if (secret) { ...verify... }` — when `SANITY_WEBHOOK_SECRET` is
   unset, signature verification is skipped and the request is processed. That
   endpoint writes product prices, stock, order status and coupons into Postgres.
@@ -63,14 +63,14 @@ guard so it can't come back.
 - **Done when:** Unsigned POST returns 401; POST with secret unset returns 500;
   neither writes to the database.
 
-### 0.3 — Add the missing admin auth guard `[ ]` — **S**
+### 0.3 — Add the missing admin auth guard `[x]` — **S**
 - **Why:** `app/api/admin/sync/promotions/route.ts` has no authorization check
   at all, while every sibling admin route correctly gates on `role !== 'ADMIN'`.
   Anyone can POST and upsert coupon rows.
 - **Files:** `app/api/admin/sync/promotions/route.ts`
 - **Done when:** Unauthenticated and non-admin POSTs both return 403.
 
-### 0.4 — Close the env-validation holes `[ ]` — **S**
+### 0.4 — Close the env-validation holes `[x]` — **S**
 - **Why:** Every fail-open above is caused by an *unvalidated* environment
   variable. `lib/env.ts` validates only `DATABASE_URL`, `NEXTAUTH_SECRET`,
   `BLOB_READ_WRITE_TOKEN` — and omits `STRIPE_SECRET_KEY`,
@@ -85,7 +85,7 @@ guard so it can't come back.
 - **Done when:** Booting with `NODE_ENV=production` and any payment/CMS secret
   missing throws at startup with a message naming the variable.
 
-### 0.5 — Add `.env.example` + document required vars `[ ]` — **S**
+### 0.5 — Add `.env.example` + document required vars `[x]` — **S**
 - **Why:** There is no `.env.example`. Nothing tells a deployer which variables
   exist, so an incomplete deploy is the default outcome.
 - **Files:** `.env.example` (new), `production_checklist.md`

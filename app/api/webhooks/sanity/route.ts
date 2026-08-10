@@ -372,15 +372,27 @@ export async function POST(req: NextRequest) {
     const signature = req.headers.get(SIGNATURE_HEADER_NAME);
     const body = await req.text();
 
-    // Validate HMAC signature when secret is configured
-    if (secret) {
-      if (!signature || !(await isValidSignature(body, signature, secret))) {
-        logger.warn('[Webhook/Sanity] Invalid or missing signature');
-        return NextResponse.json(
-          { success: false, message: 'Invalid signature' },
-          { status: 401 }
-        );
-      }
+    // Validate the HMAC signature unconditionally.
+    //
+    // This previously ran only `if (secret)`, which meant an unset
+    // SANITY_WEBHOOK_SECRET disabled verification entirely and let anonymous
+    // callers write product prices, stock, order status and coupons straight
+    // into Postgres. A missing secret is now a misconfiguration (500), never
+    // a bypass.
+    if (!secret) {
+      logger.error('[Webhook/Sanity] SANITY_WEBHOOK_SECRET is not configured — refusing request');
+      return NextResponse.json(
+        { success: false, message: 'Webhook secret not configured' },
+        { status: 500 }
+      );
+    }
+
+    if (!signature || !(await isValidSignature(body, signature, secret))) {
+      logger.warn('[Webhook/Sanity] Invalid or missing signature');
+      return NextResponse.json(
+        { success: false, message: 'Invalid signature' },
+        { status: 401 }
+      );
     }
 
     const payload = JSON.parse(body) as Record<string, unknown>;

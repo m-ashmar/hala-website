@@ -15,16 +15,22 @@ export class WhatsAppService {
   }
 
   /**
-   * Mock mode is active when:
-   *  - WHATSAPP_MOCK=true is set, OR
-   *  - No API credentials are configured (auto-fallback so the app never crashes in dev)
+   * Mock mode requires an EXPLICIT opt-in and is impossible in production.
+   *
+   * It is never inferred from missing credentials: doing so meant that a
+   * production deploy without WhatsApp configured would silently issue a
+   * fixed OTP (and return it over the wire), allowing anyone to sign in as
+   * any phone number. Missing credentials in production must fail loudly
+   * instead — see sendOTP().
    */
   isMockMode(): boolean {
-    if (process.env.WHATSAPP_MOCK === 'true') return true;
-    // Auto-mock if credentials are absent (safe dev fallback)
-    const hasCredentials =
-      !!process.env.WHATSAPP_API_TOKEN && !!process.env.WHATSAPP_PHONE_ID;
-    return !hasCredentials;
+    if (process.env.NODE_ENV === 'production') return false;
+    return process.env.WHATSAPP_MOCK === 'true';
+  }
+
+  /** True when real provider credentials are present. */
+  hasCredentials(): boolean {
+    return !!process.env.WHATSAPP_API_TOKEN && !!process.env.WHATSAPP_PHONE_ID;
   }
 
   /**
@@ -37,6 +43,16 @@ export class WhatsAppService {
    */
   async sendOTP(phone: string): Promise<{ mock: true; code: string } | { mock: false }> {
     const mockMode = this.isMockMode();
+
+    // Fail loudly rather than degrading to a guessable code. Without this,
+    // an unconfigured production deploy becomes an open door.
+    if (!mockMode && !this.hasCredentials()) {
+      throw new Error(
+        'WhatsApp credentials are not configured (WHATSAPP_API_TOKEN / WHATSAPP_PHONE_ID). ' +
+          'Refusing to issue an OTP.'
+      );
+    }
+
     const code = mockMode ? '123456' : this.generateOTP();
 
     // Store in database (expires in 10 minutes)

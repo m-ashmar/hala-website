@@ -54,11 +54,15 @@ export async function POST(req: NextRequest) {
     const { phone } = parsed.data;
     const result = await whatsappService.sendOTP(phone);
 
+    // The code is only ever surfaced outside production. isMockMode() already
+    // refuses to engage in production, but this is a second, independent gate
+    // so the OTP can never be read off the API response on a live deploy.
+    const exposeCode = result.mock && process.env.NODE_ENV !== 'production';
+
     return NextResponse.json({
       success: true,
       message: 'OTP sent successfully',
-      // In mock mode the code is returned so the login UI can display it
-      ...(result.mock && { mockCode: result.code }),
+      ...(exposeCode && { mockCode: result.code }),
     });
   } catch (error) {
     console.error('Send OTP Error:', error);

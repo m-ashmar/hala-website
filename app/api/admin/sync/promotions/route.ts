@@ -1,12 +1,21 @@
 ﻿export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { auth } from '@/auth';
 import { client } from '@/sanity/lib/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { DiscountType } from '@prisma/client';
 
 export async function POST() {
+  // Admin-only: this endpoint upserts coupon records into Postgres.
+  // It previously had no authorization check at all, unlike every sibling
+  // route under /api/admin.
+  const session = await auth();
+  if (session?.user?.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     const query = `*[_type == "promotion" && defined(couponCode)] { 
       _id, title, couponCode, discountType, discountValue, endDate, isActive 
