@@ -151,7 +151,7 @@ can't be fulfilled. These are the money-and-goods blockers.
 happen to it. No status changes, no customer communication, no inventory
 correction. The business cannot actually run on this.
 
-### 2.1 — Admin order status management `[ ]` — **M**
+### 2.1 — Admin order status management `[x]` — **M**
 - **Why:** `/api/admin/orders` is **GET-only**. There is no way to mark an order
   SHIPPED or DELIVERED, and no way to manually confirm a ShamCash payment when
   auto-verification fails. The `OrderStatus` enum has
@@ -166,7 +166,7 @@ correction. The business cannot actually run on this.
 - **Done when:** An admin can walk an order PENDING → DELIVERED, invalid
   transitions are rejected 4xx, and every change syncs to Sanity.
 
-### 2.2 — Order confirmation & status emails `[ ]` — **M**
+### 2.2 — Order confirmation & status emails `[x]` — **M**
 - **Why:** The email service works but is wired only to the contact form and
   custom requests. **A customer who pays receives nothing.** No confirmation, no
   receipt, no shipping notice. This is the single biggest trust gap.
@@ -181,7 +181,7 @@ correction. The business cannot actually run on this.
   reference code, line items, total and shipping address; email failure is
   logged without affecting order state.
 
-### 2.3 — Record coupon usage `[ ]` — **S**
+### 2.3 — Record coupon usage `[x]` — **S**
 - **Why:** `incrementCouponUsage()` is defined at
   `lib/repositories/coupon.repository.ts:128` and **never called anywhere**.
   `usedCount` stays 0 forever, so `maxUses` never triggers — a "first 50
@@ -194,7 +194,7 @@ correction. The business cannot actually run on this.
 - **Done when:** A coupon with `maxUses: 1` is rejected on the second order, and
   `CouponUsage` has one row per redemption.
 
-### 2.4 — Restore stock on cancel and refund `[ ]` — **S**
+### 2.4 — Restore stock on cancel and refund `[x]` — **S**
 - **Why:** `cancelOrder()` and `markOrderRefunded()` only flip status. Stock is
   decremented on confirm and **never returned**. Every refund permanently
   destroys inventory.
@@ -204,7 +204,7 @@ correction. The business cannot actually run on this.
 - **Done when:** Refunding a confirmed order returns exact quantities; replaying
   the webhook does not inflate stock.
 
-### 2.5 — Expire stale pending orders `[ ]` — **S**
+### 2.5 — Expire stale pending orders `[x]` — **S**
 - **Why:** `getExpiredPendingOrders()` is documented as *"Used by a cleanup
   job"* — that job does not exist and the function is never called. Expired
   orders linger indefinitely.
@@ -270,7 +270,7 @@ correction. The business cannot actually run on this.
   `app/api/webhooks/stripe/route.ts`
 - **Done when:** Firing both concurrently yields exactly one order.
 
-### 3.7 — Make stock deduction atomic `[ ]` — **S**
+### 3.7 — Make stock deduction atomic `[x]` — **S**
 - **Why:** `confirmOrderPayment` comments claim "row-level locking via
   SELECT ... FOR UPDATE", but Prisma `findUnique` does not lock. Check-then-act
   under concurrency can oversell into negative stock.

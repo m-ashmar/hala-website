@@ -14,6 +14,7 @@ import { updateCustomRequestFromSanity } from '@/lib/repositories/custom-request
 import { headers } from 'next/headers';
 import { logger } from '@/lib/logger';
 import { createPendingOrder, generateReferenceCode } from '@/lib/repositories/order.repository';
+import { notifyOrderConfirmed } from '@/lib/services/order-notification.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -144,6 +145,7 @@ export async function POST(req: NextRequest) {
           logger.info({ orderId: legacyOrderId }, '[Stripe Webhook] Confirming legacy payment');
           await confirmOrderPayment(legacyOrderId, paymentIntentId);
           queueOrderSync(legacyOrderId);
+          void notifyOrderConfirmed(legacyOrderId);
           return NextResponse.json({ received: true }, { status: 200 });
         }
 

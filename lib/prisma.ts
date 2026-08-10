@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import type { ITXClientDenyList } from '@prisma/client/runtime/library';
 import { env } from './env';
 
 const prismaClientSingleton = () => {
@@ -29,6 +30,16 @@ declare const globalThis: {
 } & typeof global;
 
 const prisma = globalThis.prismaGlobal ?? prismaClientSingleton();
+
+/**
+ * Transaction client for THIS client instance.
+ *
+ * Because the singleton is built with `$extends`, the object handed to a
+ * `$transaction` callback is the extended client — not the base
+ * `Prisma.TransactionClient`. Helpers that run inside a transaction must
+ * accept this type, or they won't typecheck against the extended client.
+ */
+export type TxClient = Omit<typeof prisma, ITXClientDenyList>;
 
 export default prisma;
 

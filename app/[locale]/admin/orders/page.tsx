@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 interface Order {
   id: string;
   status: string;
+  paymentStatus: string;
   totalAmount: number;
   paymentIntentId: string | null;
   createdAt: string;
@@ -20,18 +21,65 @@ interface Order {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  PENDING: '#CFA18D', PROCESSING: '#60a5fa', SHIPPED: '#fbbf24',
+  PENDING: '#CFA18D', CONFIRMED: '#60a5fa', PREPARING: '#a78bfa',
+  READY_FOR_SHIPPING: '#22d3ee', SHIPPED: '#fbbf24',
   DELIVERED: '#34d399', CANCELLED: '#f87171',
+  FAILED_PAYMENT: '#f87171', REFUNDED: '#94a3b8',
+};
+
+/**
+ * Mirrors VALID_TRANSITIONS in lib/repositories/order.repository.ts.
+ * Only used to decide which buttons to offer — the server revalidates every
+ * transition, so this is a convenience, not the enforcement point.
+ */
+const NEXT_STATUSES: Record<string, string[]> = {
+  PENDING: ['CONFIRMED', 'CANCELLED', 'FAILED_PAYMENT'],
+  CONFIRMED: ['PREPARING', 'CANCELLED'],
+  PREPARING: ['READY_FOR_SHIPPING', 'CANCELLED'],
+  READY_FOR_SHIPPING: ['SHIPPED', 'CANCELLED'],
+  SHIPPED: ['DELIVERED'],
+  DELIVERED: ['REFUNDED'],
+  CANCELLED: [],
+  FAILED_PAYMENT: [],
+  REFUNDED: [],
 };
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/orders').then(r => r.json()).then(d => setOrders(d.orders)).finally(() => setLoading(false));
   }, []);
+
+  /** Applies a status change or manual payment confirmation, then patches local state. */
+  const mutateOrder = async (
+    orderId: string,
+    body: { status?: string; markPaid?: boolean }
+  ) => {
+    setUpdating(orderId);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setActionError(data.error ?? 'Update failed');
+        return;
+      }
+      setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, ...data.order } : o)));
+    } catch {
+      setActionError('Network error — please try again.');
+    } finally {
+      setUpdating(null);
+    }
+  };
 
   return (
     <div style={{ padding: '40px 48px' }}>
@@ -117,6 +165,55 @@ export default function OrdersPage() {
                             <div style={{ marginTop: 10, fontSize: '0.75rem', color: 'rgba(250,247,245,0.3)', fontFamily: 'monospace' }}>
                               Payment: {o.paymentIntentId}
                             </div>
+                          )}
+
+                          {/* ── Fulfilment actions ── */}
+                          <div style={{ fontSize: '0.75rem', color: 'rgba(250,247,245,0.35)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '18px 0 10px' }}>Actions</div>
+                          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                            {o.paymentStatus !== 'PAID' && (
+                              <button
+                                onClick={() => mutateOrder(o.id, { markPaid: true })}
+                                disabled={updating === o.id}
+                                title="Confirm a ShamCash transfer that automatic verification did not match. Deducts stock."
+                                style={{
+                                  padding: '7px 14px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 600,
+                                  background: 'rgba(52,211,153,0.12)', color: '#34d399',
+                                  border: '1px solid rgba(52,211,153,0.35)',
+                                  cursor: updating === o.id ? 'not-allowed' : 'pointer',
+                                  opacity: updating === o.id ? 0.5 : 1,
+                                }}
+                              >
+                                Mark as Paid
+                              </button>
+                            )}
+
+                            {(NEXT_STATUSES[o.status] ?? []).map(next => (
+                              <button
+                                key={next}
+                                onClick={() => mutateOrder(o.id, { status: next })}
+                                disabled={updating === o.id}
+                                style={{
+                                  padding: '7px 14px', borderRadius: 8, fontSize: '0.8rem', fontWeight: 600,
+                                  background: 'rgba(207,161,141,0.1)',
+                                  color: STATUS_COLOR[next] ?? '#FAF7F5',
+                                  border: `1px solid ${STATUS_COLOR[next] ?? 'rgba(207,161,141,0.3)'}40`,
+                                  cursor: updating === o.id ? 'not-allowed' : 'pointer',
+                                  opacity: updating === o.id ? 0.5 : 1,
+                                }}
+                              >
+                                → {next.replace(/_/g, ' ')}
+                              </button>
+                            ))}
+
+                            {(NEXT_STATUSES[o.status] ?? []).length === 0 && o.paymentStatus === 'PAID' && (
+                              <span style={{ color: 'rgba(250,247,245,0.35)', fontSize: '0.82rem', fontStyle: 'italic' }}>
+                                Final state — no further transitions.
+                              </span>
+                            )}
+                          </div>
+
+                          {actionError && updating === null && (
+                            <div style={{ marginTop: 10, color: '#f87171', fontSize: '0.8rem' }}>{actionError}</div>
                           )}
                         </div>
                       </td>

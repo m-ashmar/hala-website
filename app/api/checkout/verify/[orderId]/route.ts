@@ -27,6 +27,7 @@ import {
   cancelOrder,
 } from '@/lib/repositories/order.repository';
 import { findPaymentForOrder, ShamCashError } from '@/lib/services/shamcash.service';
+import { notifyOrderConfirmed } from '@/lib/services/order-notification.service';
 
 export async function GET(
   _req: NextRequest,
@@ -96,6 +97,9 @@ export async function GET(
 
     // 4. Payment found → confirm order atomically
     const confirmed = await confirmOrderPayment(order.id);
+
+    // Confirmation email — best-effort, must not affect the response.
+    void notifyOrderConfirmed(confirmed.id);
 
     return NextResponse.json({
       orderId: confirmed.id,

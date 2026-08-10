@@ -7,7 +7,7 @@
  * - Callers are responsible for invoking sanity-sync.service after mutations.
  */
 
-import prisma from '@/lib/prisma'
+import prisma, { type TxClient } from '@/lib/prisma'
 import { DiscountType } from '@prisma/client'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -130,6 +130,43 @@ export async function incrementCouponUsage(id: string) {
     where: { id },
     data: { usedCount: { increment: 1 } },
   })
+}
+
+/**
+ * Records a coupon redemption against an order.
+ *
+ * Must run inside the same transaction that confirms the order, so a coupon
+ * can never be counted for an order that failed to complete.
+ *
+ * Idempotent: CouponUsage has a unique [couponId, orderId] constraint, so a
+ * replayed payment webhook inserts nothing and `usedCount` is only bumped
+ * when a redemption is genuinely new. Without this, `usedCount` stayed 0
+ * forever and `maxUses` was unenforceable.
+ *
+ * @param tx      Prisma transaction client
+ * @param couponId Coupon being redeemed
+ * @param orderId  Order it was redeemed against
+ * @param userId   Redeeming user, when known (null for guest checkout)
+ */
+export async function recordCouponUsage(
+  tx: TxClient,
+  couponId: string,
+  orderId: string,
+  userId?: string | null
+): Promise<boolean> {
+  const inserted = await tx.couponUsage.createMany({
+    data: [{ couponId, orderId, userId: userId ?? null }],
+    skipDuplicates: true,
+  })
+
+  // Only count the redemption if this is the first time we've seen it.
+  if (inserted.count === 0) return false
+
+  await tx.coupon.update({
+    where: { id: couponId },
+    data: { usedCount: { increment: 1 } },
+  })
+  return true
 }
 
 /**

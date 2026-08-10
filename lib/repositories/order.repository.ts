@@ -8,9 +8,10 @@
  * - No Sanity sync calls — that belongs in the service or API route layer
  */
 
-import prisma from '@/lib/prisma';
+import prisma, { type TxClient } from '@/lib/prisma';
 import type { CheckoutPayload } from '@/types/cart';
 import { OrderStatus, Prisma } from '@prisma/client';
+import { recordCouponUsage } from './coupon.repository';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -178,35 +179,49 @@ export async function confirmOrderPayment(orderId: string, stripePaymentIntentId
     });
 
     if (!order) throw new Error(`Order ${orderId} not found`);
-    
+
     // Idempotency check — already confirmed
     if (order.paymentStatus === 'PAID') return order;
     if (order.status === 'CANCELLED') {
       throw new Error(`Order ${orderId} is cancelled — cannot confirm payment`);
     }
 
-    // Deduct stock for each item (with row-level locking via SELECT ... FOR UPDATE)
+    // Deduct stock atomically.
+    //
+    // A read-then-write (findUnique, compare, update) is NOT safe here: two
+    // concurrent confirmations can both read the same stock value and both
+    // pass the check, overselling into negative. A conditional updateMany
+    // makes the check and the decrement a single atomic statement — a count
+    // of 0 means someone else took the stock first.
     for (const item of order.items) {
-      const product = await tx.productSync.findUnique({
-        where: { id: item.productSyncId },
+      const result = await tx.productSync.updateMany({
+        where: { id: item.productSyncId, stock: { gte: item.quantity } },
+        data: { stock: { decrement: item.quantity } },
       });
-      if (!product) throw new Error(`Product ${item.productSyncId} not found`);
-      if (product.stock < item.quantity) {
+
+      if (result.count === 0) {
+        const product = await tx.productSync.findUnique({
+          where: { id: item.productSyncId },
+          select: { sanityId: true, stock: true },
+        });
+        if (!product) throw new Error(`Product ${item.productSyncId} not found`);
         throw new Error(
           `Insufficient stock for ${product.sanityId}: have ${product.stock}, need ${item.quantity}`
         );
       }
-      await tx.productSync.update({
-        where: { id: item.productSyncId },
-        data: { stock: { decrement: item.quantity } },
-      });
+    }
+
+    // Record the coupon redemption in the same transaction, so a coupon can
+    // never be counted against an order that failed to confirm.
+    if (order.couponId) {
+      await recordCouponUsage(tx, order.couponId, order.id, order.userId);
     }
 
     // Update order status
     return tx.order.update({
       where: { id: orderId },
-      data: { 
-        status: 'CONFIRMED', 
+      data: {
+        status: 'CONFIRMED',
         paymentStatus: 'PAID',
         paidAt: new Date(),
         ...(stripePaymentIntentId && { stripePaymentIntentId })
@@ -240,9 +255,22 @@ export async function markOrderFailed(orderId: string) {
  * Marks an order as refunded (e.g. from charge.refunded).
  */
 export async function markOrderRefunded(orderId: string) {
-  return prisma.order.updateMany({
-    where: { id: orderId, paymentStatus: 'PAID' },
-    data: { status: 'CANCELLED', paymentStatus: 'REFUNDED' },
+  return prisma.$transaction(async (tx) => {
+    // Conditional update doubles as the idempotency guard: only an order
+    // still marked PAID transitions here, so a replayed charge.refunded
+    // webhook is a no-op and cannot restock the same items twice.
+    const updated = await tx.order.updateMany({
+      where: { id: orderId, paymentStatus: 'PAID' },
+      data: { status: 'REFUNDED', paymentStatus: 'REFUNDED' },
+    });
+
+    if (updated.count === 0) return updated; // already refunded, or never paid
+
+    // Refunded goods come back into inventory. Previously they did not, so
+    // every refund permanently destroyed stock.
+    await restockOrderItems(tx, orderId);
+
+    return updated;
   });
 }
 
@@ -250,10 +278,51 @@ export async function markOrderRefunded(orderId: string) {
  * Cancels a pending order (e.g., expired payment window).
  * Idempotent: cancelling an already-cancelled order is a no-op.
  */
+/**
+ * Returns an order's items to stock.
+ *
+ * Only ever called for orders whose stock was actually deducted (i.e. that
+ * reached PAID). Guarded by the caller's status check so a replayed webhook
+ * cannot restock twice and inflate inventory.
+ */
+async function restockOrderItems(
+  tx: TxClient,
+  orderId: string
+): Promise<void> {
+  const items = await tx.orderItem.findMany({
+    where: { orderId },
+    select: { productSyncId: true, quantity: true },
+  });
+
+  for (const item of items) {
+    await tx.productSync.update({
+      where: { id: item.productSyncId },
+      data: { stock: { increment: item.quantity } },
+    });
+  }
+}
+
 export async function cancelOrder(orderId: string) {
-  return prisma.order.update({
-    where: { id: orderId },
-    data: { status: 'CANCELLED' },
+  return prisma.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, status: true, paymentStatus: true },
+    });
+    if (!order) throw new Error(`Order ${orderId} not found`);
+
+    // Already terminal — nothing to do, and must not restock again.
+    if (order.status === 'CANCELLED') return order;
+
+    // Stock is only deducted once payment is confirmed, so only return it
+    // when it was actually taken.
+    if (order.paymentStatus === 'PAID') {
+      await restockOrderItems(tx, orderId);
+    }
+
+    return tx.order.update({
+      where: { id: orderId },
+      data: { status: 'CANCELLED' },
+    });
   });
 }
 

@@ -1,6 +1,8 @@
 import prisma from '@/lib/prisma';
 import { Order } from '@prisma/client';
 import { getCheckoutDraftBySessionId, markDraftCompleted } from '../repositories/checkout-draft.repository';
+import { recordCouponUsage } from '../repositories/coupon.repository';
+import { notifyOrderConfirmed } from './order-notification.service';
 import { generateReferenceCode } from '../repositories/order.repository';
 import { syncOrderToSanity } from './sanity-sync.service';
 
@@ -28,22 +30,28 @@ export async function fulfillStripeCheckout(
 
   // 3. Create the order and deduct stock atomically
   const order = await prisma.$transaction(async (tx) => {
-    // 3a. Deduct stock for each item
+    // 3a. Deduct stock for each item.
+    //
+    // Conditional updateMany rather than read-then-write: two concurrent
+    // fulfilments could otherwise both pass the check and oversell into
+    // negative stock. A count of 0 means someone else took it first.
     const items = draft.items as any[];
     for (const item of items) {
-      const product = await tx.productSync.findUnique({
-        where: { id: item.productSyncId },
+      const result = await tx.productSync.updateMany({
+        where: { id: item.productSyncId, stock: { gte: item.quantity } },
+        data: { stock: { decrement: item.quantity } },
       });
-      if (!product) throw new Error(`Product ${item.productSyncId} not found`);
-      if (product.stock < item.quantity) {
+
+      if (result.count === 0) {
+        const product = await tx.productSync.findUnique({
+          where: { id: item.productSyncId },
+          select: { sanityId: true, stock: true },
+        });
+        if (!product) throw new Error(`Product ${item.productSyncId} not found`);
         throw new Error(
           `Insufficient stock for ${product.sanityId}: have ${product.stock}, need ${item.quantity}`
         );
       }
-      await tx.productSync.update({
-        where: { id: item.productSyncId },
-        data: { stock: { decrement: item.quantity } },
-      });
     }
 
     // 3b. Create the Order
@@ -93,11 +101,20 @@ export async function fulfillStripeCheckout(
       },
     });
 
+    // Record the redemption in the same transaction, so a coupon is never
+    // counted against an order that failed to be created.
+    if (draft.couponId) {
+      await recordCouponUsage(tx, draft.couponId, newOrder.id, draft.userId);
+    }
+
     return newOrder;
   });
 
   // 4. Mark draft as completed
   await markDraftCompleted(draft.id);
+
+  // 5. Confirmation email — best-effort, never blocks or fails the order.
+  void notifyOrderConfirmed(order.id);
 
   // 5. Fire-and-forget Sanity sync
   void prisma.order.findUnique({
