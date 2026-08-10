@@ -34,7 +34,6 @@
     "react-dom": "19.2.3",
     "sanity": "^5.31.1",
     "stripe": "^22.3.0",
-    "styled-components": "^6.4.3",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },

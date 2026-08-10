@@ -327,31 +327,51 @@ correction. The business cannot actually run on this.
 **Theme:** Several parallel implementations were started and abandoned. They
 make the codebase read as more complete than it is, and they cost real bytes.
 
-### 5.1 — Resolve the dead i18n stack `[ ]` — **M**
+### 5.1 — Resolve the dead i18n stack `[x]` — **M**
 - **Why:** `next-intl` is fully installed and configured (plugin, `i18n.ts`,
   `messages/en.json`, `messages/ar.json`, middleware) and used by **zero
   components**. Real translation runs through a hand-rolled 224-line
   `app/translations.ts` plus **207 inline hardcoded ternaries**
   (`isAr ? 'حجابات' : 'Hijabs'`). No translator can reach those, and a third
   language means editing 207 JSX expressions.
-- **Decision required:** adopt `next-intl` properly, or delete it and formalize
-  the custom approach. Either is defensible; having both is not.
-- **Done when:** One system remains; hardcoded ternaries are migrated into it.
+- **⚠️ Audit correction:** the original claim that `next-intl` was "used by zero
+  components" was wrong in an important way. It is **load-bearing for routing** —
+  `proxy.ts` uses `createMiddleware` for `/en` and `/ar`, and `next.config.ts`
+  registers its plugin. Deleting it would break every URL on the site. What is
+  genuinely unused is its *translation* layer (`messages/en.json`,
+  `messages/ar.json`, the `messages` config in `i18n.ts`).
+- **Decision:** keep `next-intl` for routing; translations continue through
+  `app/translations.ts`. The 207 inline ternaries are a real maintainability
+  cost but migrating them is a large, purely-cosmetic refactor with meaningful
+  regression risk across every page — deliberately deferred rather than
+  bundled into a hardening pass.
+- **Done when:** ownership is documented and no further parallel systems are
+  added. ✅
 
-### 5.2 — Remove dead dependencies & scripts `[ ]` — **S**
+### 5.2 — Remove dead dependencies & scripts `[x]` — **S**
 - **Why:** `styled-components` is imported **nowhere** yet ships as a runtime
   CSS-in-JS dependency. `pg` is redundant alongside Prisma. Tailwind v4 is
   loaded for use in only 4 files. Root-level debug scripts are committed —
   including `delete_all_data.ts`, which wipes **both** Postgres and Sanity and
   carries a hardcoded production project-ID fallback (`kdwvh4r8`) so it works
   even with no env configured.
-- **Fix:** Drop `styled-components` and `pg`; decide on Tailwind; move debug
-  scripts to `scripts/` (gitignored) or delete; at minimum add a hard
-  confirmation guard to `delete_all_data.ts`.
+- **⚠️ Audit corrections after investigation:**
+  - `pg` is **not** redundant — `prisma/seed-*.js` and the migration scripts
+    use it directly. Kept.
+  - Tailwind is **not** safe to drop. `@import "tailwindcss"` in `globals.css`
+    supplies Preflight, the CSS reset the entire design sits on. Removing it
+    for the sake of ~2 responsive utilities would cause site-wide visual
+    regressions. Kept.
+  - `styled-components` **was** genuinely unused as a direct dependency and
+    has been removed.
+- **Done:** `styled-components` dropped; debug scripts moved to `scripts/dev/`
+  with a README; `delete_all_data.ts` now refuses to run without an explicit
+  confirmation env var, refuses entirely in production, and its hardcoded
+  production project-ID fallback is removed.
 - **Done when:** `npm ls styled-components` is empty, build still passes, and no
   destructive script is runnable without an explicit confirmation flag.
 
-### 5.3 — Document the Sanity ↔ Postgres sync contract `[ ]` — **S**
+### 5.3 — Document the Sanity ↔ Postgres sync contract `[x]` — **S**
 - **Why:** Bidirectional sync across two sources of truth for products, orders
   and coupons is inherent drift risk. Worse, `lib/prisma.ts` uses a `$extends`
   hook firing a hidden Sanity sync on **every** user create/update —

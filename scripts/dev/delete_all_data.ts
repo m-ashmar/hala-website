@@ -8,16 +8,46 @@ dotenv.config();
 const prisma = new PrismaClient();
 
 const writeClient = createClient({
-  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID && process.env.NEXT_PUBLIC_SANITY_PROJECT_ID !== 'your_sanity_project_id' ? process.env.NEXT_PUBLIC_SANITY_PROJECT_ID : 'kdwvh4r8',
+  // No hardcoded fallback: a destructive script must never be able to reach a
+  // real project when the environment is unconfigured.
+  projectId: process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ?? '',
   dataset: 'production',
   apiVersion: '2024-03-01',
   useCdn: false,
   token: process.env.SANITY_API_TOKEN,
 });
 
+/**
+ * DESTRUCTIVE. Wipes ALL data from both Postgres and Sanity.
+ *
+ * Guarded because this script previously ran on invocation with a hardcoded
+ * production project-ID fallback, so it worked even with no environment
+ * configured — one stray `tsx delete_all_data.ts` would have destroyed live
+ * customer orders.
+ *
+ * To run intentionally:
+ *   CONFIRM_DELETE_ALL=yes-really-delete-everything npx tsx delete_all_data.ts
+ */
+const CONFIRMATION = 'yes-really-delete-everything';
+
+function assertSafeToRun() {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Refusing to run: NODE_ENV=production.');
+  }
+  if (process.env.CONFIRM_DELETE_ALL !== CONFIRMATION) {
+    throw new Error(
+      'Refusing to run without explicit confirmation.\n' +
+        `Set CONFIRM_DELETE_ALL="${CONFIRMATION}" if you really mean it.\n` +
+        'This deletes every order, user, coupon and product in BOTH Postgres and Sanity.'
+    );
+  }
+}
+
 async function main() {
+  assertSafeToRun();
+
   console.log('--- Deleting Postgres Data ---');
-  
+
   try {
     // Delete in order to respect foreign keys
     await prisma.orderItem.deleteMany({});
