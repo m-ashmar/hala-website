@@ -1,13 +1,18 @@
 ﻿export const dynamic = 'force-dynamic';
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { client } from '@/sanity/lib/client';
 import prisma from '@/lib/prisma';
 import { logger } from '@/lib/logger';
 import { DiscountType } from '@prisma/client';
+import { validateCsrfOrigin } from '@/lib/security';
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  // CSRF origin check — applied to every state-changing route.
+  const csrfError = validateCsrfOrigin(req);
+  if (csrfError) return csrfError;
+
   // Admin-only: this endpoint upserts coupon records into Postgres.
   // It previously had no authorization check at all, unlike every sibling
   // route under /api/admin.

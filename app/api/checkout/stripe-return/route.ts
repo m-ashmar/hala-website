@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { fulfillStripeCheckout } from '@/lib/services/checkout.service';
-import { fulfillCustomRequestPayment } from '@/lib/services/custom-request-checkout.service';
+import { fulfillCustomRequestPayment, parseChargeSnapshot } from '@/lib/services/custom-request-checkout.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -38,7 +38,8 @@ export async function GET(req: NextRequest) {
       const result = await fulfillCustomRequestPayment(
         customRequestId,
         session.id,
-        (session.payment_intent as string) || null
+        (session.payment_intent as string) || null,
+        parseChargeSnapshot(session.metadata)
       );
 
       if (!result) {

@@ -28,6 +28,7 @@ import {
 } from '@/lib/repositories/order.repository';
 import { syncOrderToSanity } from '@/lib/services/sanity-sync.service';
 import { notifyOrderConfirmed, notifyOrderStatus } from '@/lib/services/order-notification.service';
+import { validateCsrfOrigin } from '@/lib/security';
 
 const ORDER_STATUSES = [
   'PENDING',
@@ -58,6 +59,10 @@ const patchSchema = z
 type RouteParams = { params: Promise<{ id: string }> };
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
+  // CSRF origin check — applied to every state-changing route.
+  const csrfError = validateCsrfOrigin(req);
+  if (csrfError) return csrfError;
+
   const session = await auth();
   if (session?.user?.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

@@ -16,6 +16,7 @@ import {
   updateAddress,
   deleteAddress,
 } from '@/lib/repositories/address.repository';
+import { validateCsrfOrigin } from '@/lib/security';
 
 const patchSchema = z.object({
   label: z.enum(['HOME', 'WORK', 'OTHER']).optional(),
@@ -44,6 +45,10 @@ export async function GET(_req: NextRequest, { params }: RouteParams) {
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
+  // CSRF origin check — applied to every state-changing route.
+  const csrfError = validateCsrfOrigin(req);
+  if (csrfError) return csrfError;
+
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -67,7 +72,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
   return NextResponse.json({ address });
 }
 
-export async function DELETE(_req: NextRequest, { params }: RouteParams) {
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  // CSRF origin check — applied to every state-changing route.
+  const csrfError = validateCsrfOrigin(req);
+  if (csrfError) return csrfError;
+
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

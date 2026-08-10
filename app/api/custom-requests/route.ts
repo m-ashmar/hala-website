@@ -9,6 +9,7 @@ import {
 } from '@/lib/services/email.service';
 import { syncCustomRequestToSanity } from '@/lib/services/sanity-sync.service';
 import { auth } from '@/auth';
+import { validateCsrfOrigin } from '@/lib/security';
 
 const customRequestSchema = z.object({
   title: z.string().max(100).optional(),
@@ -22,6 +23,10 @@ const customRequestSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // CSRF origin check — applied to every state-changing route.
+  const csrfError = validateCsrfOrigin(req);
+  if (csrfError) return csrfError;
+
   try {
     const body = await req.json();
     const parsed = customRequestSchema.safeParse(body);

@@ -126,7 +126,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
 // ── DELETE ────────────────────────────────────────────────────────────────────
 
-export async function DELETE(_req: NextRequest, { params }: RouteParams) {
+export async function DELETE(req: NextRequest, { params }: RouteParams) {
+  // CSRF origin check — applied to every state-changing route.
+  const csrfError = validateCsrfOrigin(req);
+  if (csrfError) return csrfError;
+
   const session = await auth();
   if (session?.user?.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

@@ -31,10 +31,36 @@ export interface FulfillCustomRequestResult {
   created: boolean;
 }
 
+/**
+ * What the customer was actually charged, when it differs from the SYP quote.
+ * Carried through Stripe session metadata because the order is created here,
+ * after the charge, and has no other way to learn the rate that was applied.
+ */
+export interface ChargeSnapshot {
+  chargedAmount?: number;
+  chargedCurrency?: string;
+  exchangeRate?: number;
+}
+
+/** Parses the conversion snapshot out of Stripe session metadata. */
+export function parseChargeSnapshot(
+  metadata: Record<string, string> | null | undefined
+): ChargeSnapshot {
+  if (!metadata) return {};
+  const amount = Number(metadata.chargedAmount);
+  const rate = Number(metadata.exchangeRate);
+  return {
+    chargedAmount: Number.isFinite(amount) && amount > 0 ? amount : undefined,
+    chargedCurrency: metadata.chargedCurrency || undefined,
+    exchangeRate: Number.isFinite(rate) && rate > 0 ? rate : undefined,
+  };
+}
+
 export async function fulfillCustomRequestPayment(
   customRequestId: string,
   stripeSessionId: string | null,
-  stripePaymentIntentId: string | null
+  stripePaymentIntentId: string | null,
+  charge: ChargeSnapshot = {}
 ): Promise<FulfillCustomRequestResult | null> {
   const customRequest = await prisma.customRequest.findUnique({
     where: { id: customRequestId },
@@ -96,6 +122,11 @@ export async function fulfillCustomRequestPayment(
           userId: customRequest.userId ?? null,
           stripeSessionId,
           stripePaymentIntentId,
+          // Conversion snapshot, so a card-paid custom order is reconcilable
+          // against the Stripe capture. Absent for ShamCash (charged in SYP).
+          chargedAmount: charge.chargedAmount,
+          chargedCurrency: charge.chargedCurrency,
+          exchangeRate: charge.exchangeRate,
           paidAt: new Date(),
           items: {
             create: [

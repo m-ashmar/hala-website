@@ -7,15 +7,13 @@ import {
   markOrderRefunded,
   getOrderWithItemsById,
 } from '@/lib/repositories/order.repository';
-import { syncOrderToSanity, syncCustomRequestToSanity } from '@/lib/services/sanity-sync.service';
+import { syncOrderToSanity } from '@/lib/services/sanity-sync.service';
 import { fulfillStripeCheckout } from '@/lib/services/checkout.service';
 import { markDraftExpired } from '@/lib/repositories/checkout-draft.repository';
-import { updateCustomRequestFromSanity } from '@/lib/repositories/custom-request.repository';
 import { headers } from 'next/headers';
 import { logger } from '@/lib/logger';
-import { createPendingOrder, generateReferenceCode } from '@/lib/repositories/order.repository';
 import { notifyOrderConfirmed } from '@/lib/services/order-notification.service';
-import { fulfillCustomRequestPayment } from '@/lib/services/custom-request-checkout.service';
+import { fulfillCustomRequestPayment, parseChargeSnapshot } from '@/lib/services/custom-request-checkout.service';
 import { reportError } from '@/lib/monitoring';
 
 export const dynamic = 'force-dynamic';
@@ -71,7 +69,8 @@ export async function POST(req: NextRequest) {
           await fulfillCustomRequestPayment(
             customRequestId,
             session.id,
-            paymentIntentId || null
+            paymentIntentId || null,
+            parseChargeSnapshot(session.metadata)
           );
           return NextResponse.json({ received: true }, { status: 200 });
         }

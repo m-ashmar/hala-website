@@ -8,6 +8,7 @@ import { createPendingOrder, generateUniqueReferenceCode, getOrderWithItemsById 
 import { getCurrencySettings } from '@/sanity/lib/queries';
 import { sypToUsdCents, STRIPE_MIN_USD_CENTS } from '@/lib/currency';
 import { syncOrderToSanity, syncCustomRequestToSanity } from '@/lib/services/sanity-sync.service';
+import { validateCsrfOrigin } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,10 @@ const customCheckoutSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // CSRF origin check — applied to every state-changing route.
+  const csrfError = validateCsrfOrigin(req);
+  if (csrfError) return csrfError;
+
   try {
     const body = await req.json();
     const parsed = customCheckoutSchema.safeParse(body);
@@ -134,6 +139,13 @@ export async function POST(req: NextRequest) {
           type: 'custom_request',
           customRequestId: customRequest.id,
           userId,
+          // Carry the conversion through to fulfilment. The order is created
+          // later, in the webhook, which has no other way to know what the
+          // customer was actually charged — without this the order records
+          // only the SYP quote and the USD capture is unreconcilable.
+          chargedAmount: String(chargedAmountCents / 100),
+          chargedCurrency: stripeCurrency.toUpperCase(),
+          exchangeRate: String(sypPerUsd),
         },
       });
 

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { getActiveProducts, upsertProduct } from '@/lib/repositories/product.repository';
 import { z } from 'zod';
+import { validateCsrfOrigin } from '@/lib/security';
 
 export async function GET() {
   const session = await auth();
@@ -21,6 +22,10 @@ const createSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
+  // CSRF origin check — applied to every state-changing route.
+  const csrfError = validateCsrfOrigin(req);
+  if (csrfError) return csrfError;
+
   const session = await auth();
   if (session?.user?.role !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
