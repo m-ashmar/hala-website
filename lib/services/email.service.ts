@@ -55,6 +55,44 @@ async function sendEmail(payload: EmailPayload): Promise<{ success: boolean; id?
   }
 }
 
+/**
+ * Sanitises a value for use in a Subject header.
+ *
+ * Subjects are not HTML, so escaping them would show a literal `&amp;` to the
+ * reader. What they do need is CR/LF removal: a newline in a header lets an
+ * attacker append their own headers — a second Bcc, a forged Reply-To — which
+ * is header injection rather than a display bug.
+ */
+function subj(value: unknown): string {
+  return String(value ?? '')
+    .replace(/[\r\n]+/g, ' ')
+    .slice(0, 200)
+    .trim();
+}
+
+/**
+ * HTML-escapes a value before it is interpolated into an email body.
+ *
+ * Every template here builds raw HTML with template literals, and several of
+ * the values are attacker-supplied: the contact form's name and message, and
+ * a custom request's details all arrive straight from a public form and are
+ * mailed to the site owner.
+ *
+ * Unescaped, a submitter could inject styled markup and links into an email
+ * that arrives from the shop's own verified sending domain — a phishing
+ * message wearing the brand's trust, addressed to the person with admin
+ * access. Escaping is applied at interpolation rather than at input, so stored
+ * values stay faithful and no caller has to remember.
+ */
+function esc(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export async function sendContactConfirmation(name: string, email: string, message: string) {
   return sendEmail({
     to: email,
@@ -65,10 +103,10 @@ export async function sendContactConfirmation(name: string, email: string, messa
           <h1 style="font-size: 2rem; color: #CFA18D; margin: 0;">Halahello</h1>
           <p style="color: #6B5B55; font-style: italic; margin: 8px 0 0;">Where elegance meets creativity</p>
         </div>
-        <h2 style="color: #3A2E2A;">Hello, ${name}! 💌</h2>
+        <h2 style="color: #3A2E2A;">Hello, ${esc(name)}! 💌</h2>
         <p>Thank you for reaching out. We've received your message and will get back to you within 1–2 business days.</p>
         <div style="background: #F6EDEE; border-left: 4px solid #CFA18D; padding: 20px; border-radius: 8px; margin: 24px 0;">
-          <p style="font-style: italic; color: #6B5B55; margin: 0;">"${message}"</p>
+          <p style="font-style: italic; color: #6B5B55; margin: 0;">"${esc(message)}"</p>
         </div>
         <p>In the meantime, follow us on <a href="https://instagram.com/halahelloo" style="color: #CFA18D;">@halahelloo</a> for the latest collections.</p>
         <p style="color: #6B5B55;">With love,<br/><strong>The Halahello Team</strong></p>
@@ -81,14 +119,14 @@ export async function sendContactNotificationToAdmin(name: string, email: string
   const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@halahello.com';
   return sendEmail({
     to: adminEmail,
-    subject: `📬 New Contact Message from ${name}`,
+    subject: `📬 New Contact Message from ${subj(name)}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #3A2E2A;">
         <h2>New Contact Form Submission</h2>
         <table style="width: 100%; border-collapse: collapse;">
-          <tr><td style="padding: 8px; font-weight: bold;">Name:</td><td style="padding: 8px;">${name}</td></tr>
-          <tr><td style="padding: 8px; font-weight: bold;">Email:</td><td style="padding: 8px;">${email}</td></tr>
-          <tr><td style="padding: 8px; font-weight: bold;">Message:</td><td style="padding: 8px;">${message}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold;">Name:</td><td style="padding: 8px;">${esc(name)}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold;">Email:</td><td style="padding: 8px;">${esc(email)}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold;">Message:</td><td style="padding: 8px;">${esc(message)}</td></tr>
         </table>
       </div>
     `,
@@ -105,11 +143,11 @@ export async function sendCustomRequestConfirmation(name: string, email: string,
           <h1 style="font-size: 2rem; color: #CFA18D; margin: 0;">Halahello</h1>
           <p style="color: #6B5B55; font-style: italic; margin: 8px 0 0;">Plexi by Halahello</p>
         </div>
-        <h2 style="color: #3A2E2A;">Your request is in our hands, ${name}! ✦</h2>
+        <h2 style="color: #3A2E2A;">Your request is in our hands, ${esc(name)}! ✦</h2>
         <p>We've received your custom Plexi request and our artisans are reviewing it. You'll receive a personal quote within 2–3 business days.</p>
         <div style="background: #F6EDEE; border-left: 4px solid #CFA18D; padding: 20px; border-radius: 8px; margin: 24px 0;">
           <strong>Your Request:</strong>
-          <p style="color: #6B5B55; margin: 8px 0 0;">${details}</p>
+          <p style="color: #6B5B55; margin: 8px 0 0;">${esc(details)}</p>
         </div>
         <p>Follow our process:</p>
         <ol style="color: #6B5B55; line-height: 2;">
@@ -134,15 +172,15 @@ export async function sendCustomRequestNotificationToAdmin(
   const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@halahello.com';
   return sendEmail({
     to: adminEmail,
-    subject: `✦ New Custom Plexi Request from ${name}`,
+    subject: `✦ New Custom Plexi Request from ${subj(name)}`,
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #3A2E2A;">
         <h2>New Custom Plexi Request</h2>
         <table style="width: 100%; border-collapse: collapse;">
-          <tr><td style="padding: 8px; font-weight: bold;">Name:</td><td style="padding: 8px;">${name}</td></tr>
-          <tr><td style="padding: 8px; font-weight: bold;">Email:</td><td style="padding: 8px;">${email}</td></tr>
-          <tr><td style="padding: 8px; font-weight: bold;">Details:</td><td style="padding: 8px;">${details}</td></tr>
-          <tr><td style="padding: 8px; font-weight: bold;">Images:</td><td style="padding: 8px;">${imageUrls.length > 0 ? imageUrls.join('<br/>') : 'None'}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold;">Name:</td><td style="padding: 8px;">${esc(name)}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold;">Email:</td><td style="padding: 8px;">${esc(email)}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold;">Details:</td><td style="padding: 8px;">${esc(details)}</td></tr>
+          <tr><td style="padding: 8px; font-weight: bold;">Images:</td><td style="padding: 8px;">${imageUrls.length > 0 ? imageUrls.map(esc).join('<br/>') : 'None'}</td></tr>
         </table>
       </div>
     `,
@@ -210,7 +248,7 @@ function itemsTable(items: OrderEmailItem[], currency: string, isAr: boolean) {
       (i) => `
       <tr>
         <td style="padding: 10px 0; border-bottom: 1px solid rgba(207,161,141,0.2);">
-          ${i.title} × ${i.quantity}
+          ${esc(i.title)} × ${i.quantity}
         </td>
         <td style="padding: 10px 0; border-bottom: 1px solid rgba(207,161,141,0.2); text-align: ${isAr ? 'left' : 'right'}; font-weight: 600;">
           ${money(i.lineTotal, currency)}
@@ -234,6 +272,7 @@ function shippingBlock(
     [shipping.city, shipping.country].filter(Boolean).join(', '),
   ]
     .filter(Boolean)
+    .map(esc)
     .join('<br/>');
   return `
     <h3 style="color: #3A2E2A; margin-top: 28px;">${isAr ? 'عنوان الشحن' : 'Shipping to'}</h3>
@@ -257,7 +296,7 @@ export async function sendOrderConfirmation(payload: OrderEmailPayload) {
     subject: `${isAr ? 'تم تأكيد طلبك' : 'Order confirmed'} — ${payload.referenceCode}`,
     html: shell(
       `
-      <h2 style="color: #3A2E2A;">${isAr ? `شكراً لك، ${payload.customerName}! 💛` : `Thank you, ${payload.customerName}! 💛`}</h2>
+      <h2 style="color: #3A2E2A;">${isAr ? `شكراً لك، ${esc(payload.customerName)}! 💛` : `Thank you, ${esc(payload.customerName)}! 💛`}</h2>
       <p>${
         isAr
           ? 'لقد استلمنا طلبك وتم تأكيد الدفع. سنبدأ بتجهيزه فوراً.'
@@ -306,7 +345,7 @@ export async function sendOrderStatusUpdate(
     html: shell(
       `
       <h2 style="color: #3A2E2A;">${heading}</h2>
-      <p>${isAr ? `مرحباً ${payload.customerName}،` : `Hi ${payload.customerName},`}</p>
+      <p>${isAr ? `مرحباً ${esc(payload.customerName)}،` : `Hi ${esc(payload.customerName)},`}</p>
       <p>${body}</p>
       <p style="color: #6B5B55;">
         ${isAr ? 'رقم الطلب:' : 'Order reference:'}
