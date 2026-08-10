@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 import Stripe from 'stripe';
 import { auth } from '@/auth';
 import { randomUUID } from 'crypto';
-import { createPendingOrder, generateReferenceCode, getOrderWithItemsById } from '@/lib/repositories/order.repository';
+import { createPendingOrder, generateUniqueReferenceCode, getOrderWithItemsById } from '@/lib/repositories/order.repository';
 import { syncOrderToSanity, syncCustomRequestToSanity } from '@/lib/services/sanity-sync.service';
 
 export const dynamic = 'force-dynamic';
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     const totalAmount = customRequest.quotePrice;
     const currency = customRequest.currency || 'SYP';
-    const referenceCode = generateReferenceCode();
+    const referenceCode = await generateUniqueReferenceCode();
     const timeoutMinutes = parseInt(process.env.SHAMCASH_POLL_TIMEOUT_MINUTES ?? '60', 10);
     const expiresAt = new Date(Date.now() + timeoutMinutes * 60 * 1000);
 

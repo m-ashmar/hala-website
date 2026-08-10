@@ -63,3 +63,27 @@ describe('isValidStatusTransition — illegal moves', () => {
     }
   });
 });
+
+describe('refunds', () => {
+  it('are reachable from every paid state, not just DELIVERED', () => {
+    // A refund can be issued at any point after payment — a customer changes
+    // their mind mid-preparation, a shipment is lost in transit. Stripe's
+    // webhook writes REFUNDED directly and bypasses this map, so restricting
+    // it to DELIVERED meant an admin could not record a refund they had
+    // already issued.
+    for (const from of ['CONFIRMED', 'PREPARING', 'READY_FOR_SHIPPING', 'SHIPPED', 'DELIVERED']) {
+      expect(isValidStatusTransition(s(from), s('REFUNDED')), `${from} → REFUNDED`).toBe(true);
+    }
+  });
+
+  it('are not reachable before payment', () => {
+    // Nothing was captured yet — the correct outcome is CANCELLED.
+    expect(isValidStatusTransition(s('PENDING'), s('REFUNDED'))).toBe(false);
+  });
+
+  it('cannot be undone', () => {
+    for (const to of ['CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED']) {
+      expect(isValidStatusTransition(s('REFUNDED'), s(to))).toBe(false);
+    }
+  });
+});

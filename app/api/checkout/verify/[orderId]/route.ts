@@ -22,12 +22,13 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getOrderById,
-  getOrderByReferenceCode,
   confirmOrderPayment,
   cancelOrder,
+  markPaymentReceivedPendingFulfilment,
 } from '@/lib/repositories/order.repository';
 import { findPaymentForOrder, ShamCashError } from '@/lib/services/shamcash.service';
 import { notifyOrderConfirmed } from '@/lib/services/order-notification.service';
+import { reportError } from '@/lib/monitoring';
 
 export async function GET(
   _req: NextRequest,
@@ -95,8 +96,42 @@ export async function GET(
       });
     }
 
-    // 4. Payment found → confirm order atomically
-    const confirmed = await confirmOrderPayment(order.id);
+    // 4. Payment found → confirm order atomically.
+    //
+    // Stock is validated when a ShamCash order is placed but NOT reserved, so
+    // the last unit can sell in the window before the customer pays. If that
+    // happens, confirmation throws — and the money has already arrived. The
+    // order must not simply fail here: left PENDING/PENDING it would be
+    // swept up and cancelled by the expiry cron, erasing a paid order.
+    let confirmed;
+    try {
+      confirmed = await confirmOrderPayment(order.id);
+    } catch (confirmErr) {
+      const message = confirmErr instanceof Error ? confirmErr.message : '';
+      if (/Insufficient stock/i.test(message)) {
+        // Record the payment so it can never be auto-cancelled, and hand it
+        // to a human — restock, backorder or refund is a business decision.
+        await markPaymentReceivedPendingFulfilment(order.id);
+        reportError(confirmErr, {
+          scope: 'checkout.paidButUnfulfillable',
+          orderId: order.id,
+          referenceCode,
+        });
+        return NextResponse.json(
+          {
+            orderId: order.id,
+            status: 'PENDING',
+            paymentReceived: true,
+            referenceCode,
+            error:
+              'Your payment was received, but one of these items just sold out. ' +
+              'We will contact you shortly to arrange a replacement or refund.',
+          },
+          { status: 409 }
+        );
+      }
+      throw confirmErr;
+    }
 
     // Confirmation email — best-effort, must not affect the response.
     void notifyOrderConfirmed(confirmed.id);

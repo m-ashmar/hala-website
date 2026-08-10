@@ -3,7 +3,7 @@ import { Order } from '@prisma/client';
 import { getCheckoutDraftBySessionId, markDraftCompleted } from '../repositories/checkout-draft.repository';
 import { recordCouponUsage } from '../repositories/coupon.repository';
 import { notifyOrderConfirmed } from './order-notification.service';
-import { generateReferenceCode } from '../repositories/order.repository';
+import { generateUniqueReferenceCode } from '../repositories/order.repository';
 import { syncOrderToSanity } from './sanity-sync.service';
 import { reportWarning } from '@/lib/monitoring';
 
@@ -28,6 +28,15 @@ export async function fulfillStripeCheckout(
   if (!draft) {
     throw new Error(`CheckoutDraft not found for stripeSessionId: ${stripeSessionId}`);
   }
+
+  // Generate the reference BEFORE opening the transaction.
+  //
+  // referenceCode is a unique column. Using the non-checked generator here
+  // meant a collision would surface as a constraint violation that rolls back
+  // the entire transaction — after Stripe has already captured the payment.
+  // Money taken, no order. Vanishingly unlikely at this entropy, but this is
+  // the worst place in the system for an avoidable failure.
+  const referenceCode = await generateUniqueReferenceCode();
 
   // 3. Create the order and deduct stock atomically
   const order = await prisma.$transaction(async (tx) => {
@@ -63,7 +72,7 @@ export async function fulfillStripeCheckout(
         paymentStatus: 'PAID',
         totalAmount: draft.totalAmount,
         currency: draft.currency,
-        referenceCode: generateReferenceCode(), // needed even for Stripe
+        referenceCode, // pre-generated and uniqueness-checked above
         customerName: draft.customerName,
         customerEmail: draft.customerEmail,
         customerPhone: draft.customerPhone,

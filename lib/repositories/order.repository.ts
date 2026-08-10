@@ -370,6 +370,38 @@ async function restockOrderItems(
   }
 }
 
+/**
+ * Records that payment was received for an order that cannot yet be fulfilled.
+ *
+ * Exists for one specific, real failure: a ShamCash order validates stock at
+ * creation but does not reserve it. If the last unit sells between placing and
+ * paying, confirmOrderPayment throws on insufficient stock — and the order was
+ * left PENDING/PENDING, which meant the expiry cron would later CANCEL an
+ * order the customer had genuinely paid for.
+ *
+ * Setting paymentStatus = PAID does three things:
+ *   - removes it from getExpiredPendingOrders(), so it can never be
+ *     auto-cancelled;
+ *   - tells the truth — the money did arrive;
+ *   - surfaces it in admin as paid-but-unfulfilled, which is a human decision
+ *     (restock, backorder or refund), not one to make automatically.
+ *
+ * Status deliberately stays PENDING: the goods cannot ship yet.
+ */
+export async function markPaymentReceivedPendingFulfilment(
+  orderId: string,
+  stripePaymentIntentId?: string
+) {
+  return prisma.order.updateMany({
+    where: { id: orderId, paymentStatus: 'PENDING' },
+    data: {
+      paymentStatus: 'PAID',
+      paidAt: new Date(),
+      ...(stripePaymentIntentId && { stripePaymentIntentId }),
+    },
+  });
+}
+
 export async function cancelOrder(orderId: string) {
   return prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
@@ -419,10 +451,18 @@ export async function getExpiredPendingOrders() {
  */
 const VALID_TRANSITIONS: Partial<Record<OrderStatus, OrderStatus[]>> = {
   PENDING: ['CONFIRMED', 'CANCELLED', 'FAILED_PAYMENT'],
-  CONFIRMED: ['PREPARING', 'CANCELLED'],
-  PREPARING: ['READY_FOR_SHIPPING', 'CANCELLED'],
-  READY_FOR_SHIPPING: ['SHIPPED', 'CANCELLED'],
-  SHIPPED: ['DELIVERED'],
+  // REFUNDED is reachable from every paid state, not only DELIVERED.
+  // A refund can be issued at any point after payment — a customer changes
+  // their mind mid-preparation, a shipment is lost in transit. Stripe already
+  // permits this: markOrderRefunded() writes the status directly and bypasses
+  // this map, so the webhook path worked while the admin UI refused the same
+  // transition. That inconsistency meant an admin could not record a refund
+  // they had just issued.
+  CONFIRMED: ['PREPARING', 'CANCELLED', 'REFUNDED'],
+  PREPARING: ['READY_FOR_SHIPPING', 'CANCELLED', 'REFUNDED'],
+  READY_FOR_SHIPPING: ['SHIPPED', 'CANCELLED', 'REFUNDED'],
+  // No CANCELLED once shipped — the goods are already with the courier.
+  SHIPPED: ['DELIVERED', 'REFUNDED'],
   DELIVERED: ['REFUNDED'],
   // Terminal states — no outgoing transitions
   CANCELLED: [],
@@ -447,6 +487,9 @@ export function isValidStatusTransition(
  * Throws AppError with 422 on invalid transitions.
  * Used by the Sanity webhook handler when an admin changes status in Studio.
  */
+/** States that return goods to inventory when an order enters them. */
+const RESTOCKING_STATUSES: OrderStatus[] = ['CANCELLED', 'REFUNDED'];
+
 export async function updateOrderStatus(
   orderId: string,
   newStatus: OrderStatus
@@ -454,7 +497,7 @@ export async function updateOrderStatus(
   return prisma.$transaction(async (tx) => {
     const order = await tx.order.findUnique({
       where: { id: orderId, deletedAt: null },
-      select: { id: true, status: true },
+      select: { id: true, status: true, paymentStatus: true },
     });
 
     if (!order) throw new Error(`Order ${orderId} not found`);
@@ -468,9 +511,35 @@ export async function updateOrderStatus(
     // No-op if already in target status (idempotent)
     if (order.status === newStatus) return order;
 
+    // Return goods to inventory when the order enters a restocking state.
+    //
+    // This lives here rather than only in cancelOrder()/markOrderRefunded()
+    // because inventory correctness must not depend on WHICH path was taken.
+    // Previously the expiry cron and the Stripe refund webhook restocked, but
+    // an admin (or a Sanity Studio edit, which routes through this same
+    // function) changing the status to CANCELLED or REFUNDED silently did
+    // not — so the same business outcome gave two different stock levels.
+    //
+    // Guarded on paymentStatus PAID because stock is only deducted at
+    // confirmation; an unpaid order never took any. `order.status` is
+    // re-read inside the transaction, so a concurrent update cannot cause a
+    // double restock.
+    const isRestocking =
+      RESTOCKING_STATUSES.includes(newStatus) &&
+      !RESTOCKING_STATUSES.includes(order.status) &&
+      order.paymentStatus === 'PAID';
+
+    if (isRestocking) {
+      await restockOrderItems(tx, orderId);
+    }
+
     return tx.order.update({
       where: { id: orderId },
-      data: { status: newStatus },
+      data: {
+        status: newStatus,
+        // Keep paymentStatus truthful when an admin records a refund directly.
+        ...(newStatus === 'REFUNDED' && { paymentStatus: 'REFUNDED' as const }),
+      },
     });
   });
 }
