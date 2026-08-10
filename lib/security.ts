@@ -45,6 +45,25 @@ function getAllowedOrigins(): string[] {
 }
 
 /**
+ * Exact origin comparison.
+ *
+ * This was previously `candidate === a || candidate.startsWith(a)`, and the
+ * prefix arm was a straightforward bypass: with `https://halahello.com`
+ * allowed, an attacker origin of `https://halahello.com.evil.com` starts with
+ * it and was accepted. Registering a domain that begins with the victim's is
+ * trivial, so every CSRF check in the app was defeatable.
+ *
+ * An Origin header is always scheme://host[:port] with no path, and the
+ * referer branch reduces to the same shape before comparing, so exact equality
+ * is both correct and sufficient. Case is normalised because scheme and host
+ * are case-insensitive.
+ */
+function isAllowedOrigin(candidate: string, allowed: string[]): boolean {
+  const c = candidate.toLowerCase();
+  return allowed.some((a) => a.toLowerCase() === c);
+}
+
+/**
  * Validates the Origin/Referer header against the allowed origins.
  * Returns a 403 NextResponse if the origin is invalid, otherwise null.
  *
@@ -64,7 +83,7 @@ export function validateCsrfOrigin(req: NextRequest): NextResponse | null {
   // Check Origin header first (present in CORS / same-site fetch)
   if (origin) {
     const normalised = origin.replace(/\/$/, '');
-    if (!allowed.some((a) => normalised === a || normalised.startsWith(a))) {
+    if (!isAllowedOrigin(normalised, allowed)) {
       return NextResponse.json(
         { error: 'Forbidden: invalid origin' },
         { status: 403 }
@@ -84,10 +103,7 @@ export function validateCsrfOrigin(req: NextRequest): NextResponse | null {
       }
     })();
 
-    if (
-      refererOrigin &&
-      !allowed.some((a) => refererOrigin === a || refererOrigin.startsWith(a))
-    ) {
+    if (refererOrigin && !isAllowedOrigin(refererOrigin, allowed)) {
       return NextResponse.json(
         { error: 'Forbidden: invalid referer' },
         { status: 403 }
@@ -97,6 +113,33 @@ export function validateCsrfOrigin(req: NextRequest): NextResponse | null {
 
   // No Origin / Referer — allow (server-to-server, mobile apps, Postman)
   return null;
+}
+
+// ── Uploaded-asset URL validation ────────────────────────────────────────────
+
+/** Host suffix of Vercel Blob public URLs. */
+const BLOB_HOST_SUFFIX = '.public.blob.vercel-storage.com';
+
+/**
+ * True when a URL points at our own blob storage.
+ *
+ * Used to constrain client-supplied image URLs (e.g. custom-request
+ * attachments) to assets that actually went through the validated upload
+ * endpoint. Accepting arbitrary URLs meant a submitter could embed any remote
+ * content into the admin panel — a tracking pixel that reports when staff open
+ * a request, or a hostile image aimed at the browser's decoder. Neither is
+ * exotic, and neither needs to be possible: legitimate attachments are always
+ * blob URLs returned by /api/upload.
+ */
+export function isOwnUploadUrl(value: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== 'https:') return false;
+  return url.hostname.toLowerCase().endsWith(BLOB_HOST_SUFFIX);
 }
 
 // ── File Upload Validation ───────────────────────────────────────────────────

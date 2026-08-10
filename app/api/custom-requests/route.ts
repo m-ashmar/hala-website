@@ -9,7 +9,7 @@ import {
 } from '@/lib/services/email.service';
 import { syncCustomRequestToSanity } from '@/lib/services/sanity-sync.service';
 import { auth } from '@/auth';
-import { validateCsrfOrigin } from '@/lib/security';
+import { validateCsrfOrigin, isOwnUploadUrl } from '@/lib/security';
 
 const customRequestSchema = z.object({
   title: z.string().max(100).optional(),
@@ -18,7 +18,12 @@ const customRequestSchema = z.object({
   color: z.string().max(100).optional(),
   occasion: z.string().max(200).optional(),
   message: z.string().min(10, 'Please describe your request in more detail').max(3000),
-  imageUrls: z.array(z.string().url()).max(5).optional(),
+  // Attachments must be assets uploaded through /api/upload, not arbitrary
+  // remote URLs — those get rendered in the admin panel.
+  imageUrls: z
+    .array(z.string().url().refine(isOwnUploadUrl, 'Image must be uploaded through this site'))
+    .max(5)
+    .optional(),
   requestedQuantity: z.number().int().min(1).optional(),
 });
 
