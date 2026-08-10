@@ -17,6 +17,7 @@
  */
 
 import { writeClient } from '@/sanity/lib/client'
+import { reportError } from '@/lib/monitoring'
 import type { Prisma } from '@prisma/client'
 import { logger } from '@/lib/logger'
 
@@ -141,8 +142,10 @@ export async function syncOrderToSanity(order: OrderSyncInput): Promise<void> {
     await writeClient.createOrReplace(doc)
     logger.info({ orderId: order.id, docId }, '[SanitySync] Order synced')
   } catch (err) {
-    // Log and swallow — Postgres is source of truth, sync is best-effort
-    logger.error({ orderId: order.id, err }, '[SanitySync] Failed to sync order')
+    // Reported, not swallowed. Postgres remains the source of truth and a
+    // sync failure must never fail the caller, but a silent failure leaves the
+    // admin's Sanity view stale with nothing to indicate it.
+    reportError(err, { scope: 'sanitySync.order', orderId: order.id })
   }
 }
 
@@ -162,7 +165,7 @@ export async function patchOrderStatusInSanity(
     await writeClient.patch(docId).set({ status }).commit()
     logger.info({ pgId, status }, '[SanitySync] Order status patched')
   } catch (err) {
-    logger.error({ pgId, err }, '[SanitySync] Failed to patch order status')
+    reportError(err, { scope: 'sanitySync.orderStatus', pgId })
   }
 }
 
@@ -197,7 +200,7 @@ export async function syncCouponToSanity(coupon: CouponSyncInput): Promise<void>
     await writeClient.createOrReplace(doc)
     logger.info({ couponId: coupon.id, docId }, '[SanitySync] Coupon synced')
   } catch (err) {
-    logger.error({ couponId: coupon.id, err }, '[SanitySync] Failed to sync coupon')
+    reportError(err, { scope: 'sanitySync.coupon', couponId: coupon.id })
   }
 }
 
@@ -214,7 +217,7 @@ export async function syncCouponUsageToSanity(
     await writeClient.patch(docId).set({ usedCount }).commit()
     logger.info({ pgId, usedCount }, '[SanitySync] Coupon usage synced')
   } catch (err) {
-    logger.error({ pgId, err }, '[SanitySync] Failed to sync coupon usage')
+    reportError(err, { scope: 'sanitySync.couponUsage', pgId })
   }
 }
 
@@ -230,7 +233,7 @@ export async function deleteCouponFromSanity(pgId: string): Promise<void> {
     await writeClient.delete(docId)
     logger.info({ pgId, docId }, '[SanitySync] Coupon deleted from Sanity')
   } catch (err) {
-    logger.error({ pgId, err }, '[SanitySync] Failed to delete coupon from Sanity')
+    reportError(err, { scope: 'sanitySync.couponDelete', pgId })
   }
 }
 
@@ -261,7 +264,7 @@ export async function syncUserToSanity(user: UserSyncInput): Promise<void> {
     await writeClient.createOrReplace(doc)
     logger.info({ userId: user.id, docId }, '[SanitySync] User synced')
   } catch (err) {
-    logger.error({ userId: user.id, err }, '[SanitySync] Failed to sync user')
+    reportError(err, { scope: 'sanitySync.user', userId: user.id })
   }
 }
 
@@ -305,6 +308,6 @@ export async function syncCustomRequestToSanity(req: CustomRequestSyncInput): Pr
     await writeClient.createOrReplace(doc)
     logger.info({ customRequestId: req.id, docId }, '[SanitySync] CustomRequest synced')
   } catch (err) {
-    logger.error({ customRequestId: req.id, err }, '[SanitySync] Failed to sync CustomRequest')
+    reportError(err, { scope: 'sanitySync.customRequest', customRequestId: req.id })
   }
 }

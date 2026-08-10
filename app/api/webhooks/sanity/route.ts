@@ -89,7 +89,14 @@ async function handleProductEvent(payload: Record<string, unknown>) {
     );
   }
 
-  await upsertProduct({ sanityId, price, stock: 100 });
+  // Price only. Stock is owned by Postgres — it is decremented by orders and
+  // has no counterpart in Sanity — so it must not be written from here.
+  // This previously passed `stock: 100`, which reset a product's inventory on
+  // every CMS edit and caused both lost sales data and overselling.
+  //
+  // A brand-new product starts at 0 and is stocked deliberately from the admin
+  // panel, so publishing in Sanity can never make unavailable goods sellable.
+  await upsertProduct({ sanityId, price, initialStock: 0 });
   return NextResponse.json(
     { success: true, message: `Product ${sanityId} synced` },
     { status: 200 }

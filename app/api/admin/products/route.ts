@@ -35,6 +35,18 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) {
     return NextResponse.json({ error: 'Validation failed', issues: parsed.error.flatten() }, { status: 400 });
   }
-  const product = await upsertProduct(parsed.data);
+  // Map explicitly rather than spreading parsed.data: `stock` only applies
+  // when the row is created, and passing the object wholesale would let a
+  // renamed field be silently dropped — TypeScript's excess-property check
+  // does not apply to a variable, so it would compile and quietly do nothing.
+  //
+  // To adjust stock on an EXISTING product, use PATCH /api/admin/products/[id];
+  // this endpoint intentionally cannot overwrite it, because doing so is what
+  // let the Sanity webhook reset inventory.
+  const product = await upsertProduct({
+    sanityId: parsed.data.sanityId,
+    price: parsed.data.price,
+    initialStock: parsed.data.stock,
+  });
   return NextResponse.json({ product }, { status: 201 });
 }

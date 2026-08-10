@@ -40,25 +40,43 @@ export async function getProductBySanityId(sanityId: string): Promise<ProductWit
   });
 }
 
+/**
+ * Syncs a product from Sanity into Postgres.
+ *
+ * **Stock is never overwritten on update.** Sanity owns price; Postgres owns
+ * stock, because stock is decremented by orders and Sanity has no stock field
+ * at all.
+ *
+ * The webhook previously called this with a hardcoded `stock: 100`, so every
+ * product edit in the CMS — even changing a title — reset that product's
+ * inventory to 100 and erased every sale since. Beyond losing the count, it
+ * caused overselling: a product with 3 left would silently accept 100 orders.
+ *
+ * `initialStock` therefore applies only when the row is first created.
+ */
 export async function upsertProduct(data: {
   sanityId: string;
   price: number;
-  stock: number;
+  /** Only used when creating the row for the first time. Ignored on update. */
+  initialStock?: number;
 }): Promise<ProductWithMeta> {
   return prisma.productSync.upsert({
     where: { sanityId: data.sanityId },
     // Clear the retirement flags on update. Deleting a product in Sanity soft
     // deletes it here; republishing the same slug must bring it back. Without
-    // this the row would be updated with fresh price and stock while remaining
+    // this the row would be updated with a fresh price while remaining
     // invisible to every read path — a product that looks published in the CMS
     // and cannot be bought.
     update: {
       price: data.price,
-      stock: data.stock,
       deletedAt: null,
       isActive: true,
     },
-    create: { sanityId: data.sanityId, price: data.price, stock: data.stock },
+    create: {
+      sanityId: data.sanityId,
+      price: data.price,
+      stock: data.initialStock ?? 0,
+    },
     select: { id: true, sanityId: true, price: true, stock: true, isActive: true },
   });
 }
