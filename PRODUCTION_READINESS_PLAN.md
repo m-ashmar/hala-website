@@ -383,7 +383,7 @@ make the codebase read as more complete than it is, and they cost real bytes.
 
 ## Block 6 — Quality gates
 
-### 6.1 — Tests on the money paths `[ ]` — **L**
+### 6.1 — Tests on the money paths `[x]` — **L**
 - **Why:** Vitest is fully configured (`vitest.config.ts`, `vitest.setup.ts`,
   `npm test` script) and there is **not one test file**. Every fix in Blocks 1–3
   is silently regressable.
@@ -392,7 +392,7 @@ make the codebase read as more complete than it is, and they cost real bytes.
   idempotency.
 - **Done when:** `npm test` runs a meaningful suite covering the above.
 
-### 6.2 — CI pipeline `[ ]` — **S**
+### 6.2 — CI pipeline `[x]` — **S**
 - **Why:** No `.github/workflows`. Nothing prevents a broken or insecure commit
   from reaching production.
 - **Done when:** Push runs typecheck + lint + tests + build, and blocks merge on

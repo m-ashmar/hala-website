@@ -224,7 +224,27 @@ Anything here is fully implemented in code and switches on with a secret.
 
 ---
 
-## 7. Known limitations & accepted risks
+## 7. CI / staging ⚪️ OPTIONAL
+
+`.github/workflows/ci.yml` runs typecheck, lint, tests, build and a dependency
+audit on every push and PR. It works with no configuration.
+
+Two deliberate choices:
+
+- **Lint does not block.** There is pre-existing lint debt (mostly `any`
+  types, 76 errors) that predates this work. Failing on it today would block
+  every PR. It reports, and should be made blocking once the baseline is clean.
+- **Only *critical* advisories fail the build.** The remaining high-severity
+  ones live in the Sanity CLI toolchain and need an upstream fix (see §8).
+
+**Still to do — staging environment 🟡 RECOMMENDED.** Payment and webhook
+changes currently have nowhere to be exercised except production. A staging
+deploy with Stripe *test* keys and a separate Sanity dataset would let the
+end-to-end runs listed in §9 happen safely.
+
+---
+
+## 8. Known limitations & accepted risks
 
 - **4 high-severity npm advisories remain**, all inside the Sanity **CLI**
   toolchain (`@sanity/cli`, `@sanity/runtime-cli`, `adm-zip`, `js-yaml`).
@@ -242,7 +262,7 @@ Anything here is fully implemented in code and switches on with a secret.
 
 ---
 
-## 8. Verification I could not perform
+## 9. Verification I could not perform
 
 Honest list of what remains untested, because this environment has no database,
 no Stripe keys and no email provider:

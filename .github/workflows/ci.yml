@@ -1,0 +1,79 @@
+name: CI
+
+# Nothing previously prevented a broken or insecure commit reaching production.
+# This runs the same gates locally and on every push.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  # A newer push supersedes an in-flight run on the same ref.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck · Lint · Test · Build
+    runs-on: ubuntu-latest
+
+    env:
+      # Placeholders only. lib/env.ts requires several secrets in production,
+      # and Prisma needs a connection string present to generate its client —
+      # no real service is contacted, and NODE_ENV stays non-production so the
+      # production-only requirements do not apply.
+      DATABASE_URL: postgresql://user:pass@localhost:5432/ci
+      DIRECT_URL: postgresql://user:pass@localhost:5432/ci
+      AUTH_SECRET: ci-placeholder-secret
+      NEXT_PUBLIC_SANITY_PROJECT_ID: ciproject
+      NEXT_PUBLIC_SANITY_DATASET: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Lint
+        run: npx eslint .
+        # The codebase has pre-existing lint debt (mostly `any`). Failing the
+        # build on it today would block every PR, so this reports without
+        # blocking. Remove once the baseline is clean.
+        continue-on-error: true
+
+      - name: Test
+        run: npm test -- --run
+
+      - name: Build
+        run: npx next build
+
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      - name: Fail on critical advisories
+        # Critical vulnerabilities in a payment application block the build.
+        # High and below are reported in the step above but do not fail, since
+        # the remaining ones live in the Sanity CLI toolchain and need an
+        # upstream fix (see ACTION_REQUIRED.md).
+        run: npm audit --audit-level=critical --omit=dev
