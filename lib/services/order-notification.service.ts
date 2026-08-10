@@ -19,6 +19,7 @@
  */
 
 import prisma from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import { logger } from '@/lib/logger';
 import {
   sendOrderConfirmation,
@@ -75,11 +76,28 @@ async function claimNotification(
     return { id: existing.id, attempts: existing.attempts };
   }
 
-  const created = await prisma.notificationLog.create({
-    data: { orderId, type, recipient, status: 'PENDING' },
-    select: { id: true, attempts: true },
-  });
-  return { id: created.id, attempts: created.attempts };
+  try {
+    const created = await prisma.notificationLog.create({
+      data: { orderId, type, recipient, status: 'PENDING' },
+      select: { id: true, attempts: true },
+    });
+    return { id: created.id, attempts: created.attempts };
+  } catch (err) {
+    // The find-then-create above is check-then-act, and two payment paths can
+    // legitimately race here — the Stripe webhook and the return-URL poll both
+    // call this for the same order. The unique [orderId, type] constraint is
+    // what actually guarantees a single send; losing that race is normal, not
+    // an error. Returning null lets the loser stand down quietly instead of
+    // surfacing as "confirmation could not be attempted", which would be
+    // alarming and wrong.
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2002'
+    ) {
+      return null;
+    }
+    throw err;
+  }
 }
 
 /** Records the outcome of a delivery attempt. */

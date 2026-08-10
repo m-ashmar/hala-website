@@ -13,6 +13,8 @@
  * IMPORTANT: All calls are server-side only. The API token is never exposed to the client.
  */
 
+import { reportWarning } from '@/lib/monitoring';
+
 const BASE_URL = 'https://api.shamcash-api.com/v1';
 const TIMEOUT_MS = 15_000;
 
@@ -186,10 +188,11 @@ export async function findPaymentForOrder(opts: {
   const startAt = new Date(opts.createdAt.getTime() - 5 * 60 * 1000);
   const startAtStr = startAt.toISOString().split('T')[0]; // YYYY-MM-DD
 
+  const LIMIT = 100;
   const transactions = await getTransactions({
     account_id: accountId,
     start_at: startAtStr,
-    limit: 100,
+    limit: LIMIT,
   });
 
   // Match: incoming transfer, correct amount, note contains reference code
@@ -199,6 +202,29 @@ export async function findPaymentForOrder(opts: {
       Math.abs(tx.amount - opts.expectedAmount) < 1 && // allow ±1 rounding
       tx.note?.includes(opts.referenceCode)
   );
+
+  // `start_at` has day granularity, so this window is "everything since the
+  // start of the order's creation day", capped at one page. Once the business
+  // exceeds LIMIT transactions in a day, a genuine payment can fall outside
+  // the page and never be matched — the customer pays, verification keeps
+  // reporting PENDING, and the order eventually expires.
+  //
+  // The endpoint accepts a `cursor`, but the response is a bare array with no
+  // next-cursor returned, so paging cannot be implemented against the current
+  // client without the provider's documentation. Rather than guess at the
+  // contract, make the condition loud: a full page with no match is the exact
+  // signature of a truncated window.
+  if (!match && transactions.length >= LIMIT) {
+    reportWarning(
+      'ShamCash transaction window is full — a payment may exist beyond the first page',
+      {
+        scope: 'shamcash.windowTruncated',
+        referenceCode: opts.referenceCode,
+        returned: transactions.length,
+        limit: LIMIT,
+      }
+    );
+  }
 
   return match ?? null;
 }
