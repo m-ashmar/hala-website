@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { safeRedirectPath } from '@/lib/security';
 import { Lang, tr } from '@/app/translations';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -14,7 +15,10 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const lang = (params?.locale as Lang) || 'en';
   const t = (key: Parameters<typeof tr>[0]) => tr(key, lang);
-  const callbackUrl = searchParams.get('callbackUrl') || '/';
+  // Constrained to a same-site path. Taking this straight from the query
+  // string made the login page an open redirect: a victim would see a genuine,
+  // trusted domain, sign in for real, and be handed to an attacker's site.
+  const callbackUrl = safeRedirectPath(searchParams.get('callbackUrl'), `/${lang}`);
 
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [phone, setPhone] = useState('');

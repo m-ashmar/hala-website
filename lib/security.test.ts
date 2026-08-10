@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { NextRequest } from 'next/server';
-import { validateCsrfOrigin, isOwnUploadUrl } from './security';
+import { validateCsrfOrigin, isOwnUploadUrl, safeRedirectPath } from './security';
 
 /**
  * CSRF origin validation.
@@ -116,5 +116,50 @@ describe('isOwnUploadUrl', () => {
   it('rejects javascript: and data: schemes', () => {
     expect(isOwnUploadUrl('javascript:alert(1)')).toBe(false);
     expect(isOwnUploadUrl('data:text/html,<script>alert(1)</script>')).toBe(false);
+  });
+});
+
+describe('safeRedirectPath', () => {
+  it('allows a same-site path', () => {
+    expect(safeRedirectPath('/en/account')).toBe('/en/account');
+  });
+
+  it('preserves a query string', () => {
+    expect(safeRedirectPath('/en/products?cat=hijab')).toBe('/en/products?cat=hijab');
+  });
+
+  it('REJECTS an absolute URL to another origin', () => {
+    // The open redirect: victim signs in on a trusted domain, lands on evil.com.
+    expect(safeRedirectPath('https://evil.com')).toBe('/');
+  });
+
+  it('REJECTS a protocol-relative URL', () => {
+    // Browsers treat //evil.com as cross-origin despite the leading slash.
+    expect(safeRedirectPath('//evil.com')).toBe('/');
+  });
+
+  it('REJECTS the backslash variant', () => {
+    expect(safeRedirectPath('/\\evil.com')).toBe('/');
+  });
+
+  it('rejects javascript: and data: schemes', () => {
+    expect(safeRedirectPath('javascript:alert(1)')).toBe('/');
+    expect(safeRedirectPath('data:text/html,<script>alert(1)</script>')).toBe('/');
+  });
+
+  it('rejects embedded control characters', () => {
+    // CR/LF could be used for header splitting further down the stack.
+    expect(safeRedirectPath('/en/account\nLocation: https://evil.com')).toBe('/');
+    expect(safeRedirectPath('/en\u0000/account')).toBe('/');
+  });
+
+  it('falls back for empty or missing input', () => {
+    expect(safeRedirectPath(null)).toBe('/');
+    expect(safeRedirectPath(undefined)).toBe('/');
+    expect(safeRedirectPath('')).toBe('/');
+  });
+
+  it('honours a custom fallback', () => {
+    expect(safeRedirectPath('https://evil.com', '/ar')).toBe('/ar');
   });
 });

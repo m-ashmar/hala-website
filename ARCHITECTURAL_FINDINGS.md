@@ -172,6 +172,30 @@ two languages as the permanent ceiling?
 
 ---
 
+## A7 — Admin rights cannot be revoked before the token expires
+
+**Severity: low-medium · needs a decision**
+
+Sessions use the JWT strategy, and `role` is written into the token at sign-in.
+Nothing re-reads it afterwards, so **removing someone's ADMIN role does not take
+effect until their token expires.** Until then they keep full access to order
+state, prices and customer data.
+
+Session lifetime has been shortened from NextAuth's 30-day default to 7 days,
+which bounds the exposure, but does not close it.
+
+**Options:**
+- **(a)** Switch to the database session strategy — revocation is immediate,
+  at the cost of a database read per request.
+- **(b)** Keep JWT, re-read the role from the database in the admin guard only.
+  Cheap, since admin traffic is low, and closes the gap where it matters.
+- **(c)** Accept it and rely on the 7-day bound.
+
+**My recommendation: (b).** It targets exactly the surface that matters without
+paying for a lookup on every customer request.
+
+---
+
 ## Not architectural, but needs a human
 
 **Product pages fail the build when Sanity is unreachable.**

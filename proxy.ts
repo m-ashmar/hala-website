@@ -20,17 +20,29 @@ export default auth(async (req: NextRequest & { auth: any }) => {
   const isAdminRoute = /^\/(en|ar)\/admin(\/|$)/.test(pathname);
   const isLoginPage = /^\/(en|ar)\/admin\/login/.test(pathname);
 
+  // Locale of the request, so a redirect doesn't dump an Arabic visitor on an
+  // English page.
+  const locale = pathname.match(/^\/(en|ar)/)?.[1] ?? 'en';
+
+  // The path the user was trying to reach, preserved across login.
+  //
+  // A PATH, not req.url: the login page constrains callbackUrl to a same-site
+  // path (it was previously an open redirect), so passing a full absolute URL
+  // here would be rejected and silently drop the user on the home page after
+  // signing in.
+  const returnTo = `${pathname}${req.nextUrl.search}`;
+
   if (isAdminRoute && !isLoginPage) {
     const session = req.auth;
 
     if (!session) {
-      const loginUrl = new URL(`/en/admin/login`, req.url);
-      loginUrl.searchParams.set('callbackUrl', req.url);
+      const loginUrl = new URL(`/${locale}/admin/login`, req.url);
+      loginUrl.searchParams.set('callbackUrl', returnTo);
       return NextResponse.redirect(loginUrl);
     }
 
     if (session.user?.role !== 'ADMIN') {
-      return NextResponse.redirect(new URL(`/`, req.url));
+      return NextResponse.redirect(new URL(`/${locale}`, req.url));
     }
   }
 
@@ -39,10 +51,8 @@ export default auth(async (req: NextRequest & { auth: any }) => {
   if (isCustomerRoute) {
     const session = req.auth;
     if (!session) {
-      const localeMatch = pathname.match(/^\/(en|ar)/);
-      const locale = localeMatch ? localeMatch[1] : 'en';
       const loginUrl = new URL(`/${locale}/login`, req.url);
-      loginUrl.searchParams.set('callbackUrl', req.url);
+      loginUrl.searchParams.set('callbackUrl', returnTo);
       return NextResponse.redirect(loginUrl);
     }
   }

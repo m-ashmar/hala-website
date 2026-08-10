@@ -115,6 +115,44 @@ export function validateCsrfOrigin(req: NextRequest): NextResponse | null {
   return null;
 }
 
+// ── Post-login redirect validation ───────────────────────────────────────────
+
+/**
+ * Constrains a `callbackUrl` to a path on this site.
+ *
+ * The login page read `searchParams.get('callbackUrl')` and pushed straight to
+ * it, so `/en/login?callbackUrl=https://evil.com` sent the user to an
+ * arbitrary origin the moment they authenticated. That is a phishing primitive
+ * rather than a cosmetic bug: the victim sees a genuine, trusted domain, signs
+ * in for real, and is handed to a look-alike immediately afterwards.
+ *
+ * Only same-site absolute paths are accepted. Rejected are:
+ *   - absolute URLs of any scheme, including `javascript:` and `data:`
+ *   - protocol-relative `//evil.com`, which browsers treat as cross-origin
+ *   - backslash variants (`/\evil.com`) that some parsers normalise to `//`
+ *
+ * @returns the path when safe, otherwise `fallback`
+ */
+export function safeRedirectPath(
+  value: string | null | undefined,
+  fallback = '/'
+): string {
+  if (!value) return fallback;
+
+  const trimmed = value.trim();
+
+  // Must be an absolute path on this site.
+  if (!trimmed.startsWith('/')) return fallback;
+
+  // `//host` and `/\host` are cross-origin despite the leading slash.
+  if (trimmed.startsWith('//') || trimmed.startsWith('/\\')) return fallback;
+
+  // Control characters can be used to smuggle past naive checks.
+  if (/[\u0000-\u001f\u007f]/.test(trimmed)) return fallback;
+
+  return trimmed;
+}
+
 // ── Uploaded-asset URL validation ────────────────────────────────────────────
 
 /** Host suffix of Vercel Blob public URLs. */
