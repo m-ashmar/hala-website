@@ -39,9 +39,10 @@ import { syncOrderToSanity } from '@/lib/services/sanity-sync.service';
 import { createCheckoutDraft, markDraftStripeSession } from '@/lib/repositories/checkout-draft.repository';
 import { createRateLimiter } from '@/lib/rate-limit';
 import { validateCsrfOrigin, getClientIp } from '@/lib/security';
-import { getCurrencySettings } from '@/sanity/lib/queries';
+import { getCurrencySettings, getPromotionByCouponCode, getProductCategoriesByIds } from '@/sanity/lib/queries';
 import { sypToUsdCents, STRIPE_MIN_USD_CENTS } from '@/lib/currency';
 import { reportError } from '@/lib/monitoring';
+import { computeDiscount } from '@/lib/coupon-scope';
 
 // 3 checkout attempts per IP per minute — prevents brute-force stock checks
 const checkoutLimiter = createRateLimiter({ limit: 3, windowMs: 60_000 });
@@ -199,14 +200,53 @@ export async function POST(req: NextRequest) {
       });
 
       if (coupon && (coupon.maxUses === null || coupon.usedCount < coupon.maxUses)) {
-        // Compute scoped discount using the validated item list
-        // We use the full subtotal here because without category info in the
-        // order payload we trust the coupon was already scope-validated in the cart.
-        // For extra security, FIXED discounts are capped at the cart total.
-        if (coupon.discountType === 'PERCENTAGE') {
-          discountAmount = Math.round((rawSubtotal * Number(coupon.discountValue)) / 100);
+        // Resolve the promotion's scope and each item's category server-side.
+        //
+        // This previously applied the discount to the FULL cart subtotal and
+        // ignored minOrderAmount, trusting that the cart had already
+        // scope-validated the coupon. It hadn't — the client is not a
+        // trustworthy place to enforce a discount. A category-scoped promotion
+        // ("20% off Hijabs") therefore discounted plexi items too, on any
+        // mixed cart, with no attacker involved.
+        const promotion = await getPromotionByCouponCode(coupon.code).catch(() => null);
+        const scope = {
+          linkedSanityIds: new Set(promotion?.linkedProducts?.map((p) => p.sanityId) ?? []),
+          linkedCategories: new Set(
+            (promotion?.linkedCategories ?? []).map((c) => c.toLowerCase())
+          ),
+        };
+
+        // Categories are only needed when the promotion is category-scoped.
+        let categoryMap: Record<string, string> = {};
+        if (scope.linkedCategories.size > 0) {
+          categoryMap = await getProductCategoriesByIds(
+            validatedItems.map((i) => i.sanityId)
+          );
+        }
+
+        const outcome = computeDiscount(
+          validatedItems.map((i) => ({
+            sanityId: i.sanityId,
+            price: i.priceAtPurchase, // DB price, never the client's
+            quantity: i.quantity,
+            category: categoryMap[i.sanityId],
+          })),
+          {
+            discountType: coupon.discountType as 'PERCENTAGE' | 'FIXED',
+            discountValue: Number(coupon.discountValue),
+            minOrderAmount: coupon.minOrderAmount ? Number(coupon.minOrderAmount) : null,
+          },
+          scope
+        );
+
+        if (outcome.ok) {
+          discountAmount = outcome.discountAmount;
         } else {
-          discountAmount = Math.min(Number(coupon.discountValue), rawSubtotal);
+          // The cart no longer qualifies (items changed since validation, or a
+          // category-scoped coupon matched nothing). Proceed at full price
+          // rather than silently over-discounting.
+          couponId = undefined;
+          discountAmount = 0;
         }
       } else {
         // Coupon invalid/expired at order time — ignore it silently

@@ -5,6 +5,8 @@ import Stripe from 'stripe';
 import { auth } from '@/auth';
 import { randomUUID } from 'crypto';
 import { createPendingOrder, generateUniqueReferenceCode, getOrderWithItemsById } from '@/lib/repositories/order.repository';
+import { getCurrencySettings } from '@/sanity/lib/queries';
+import { sypToUsdCents, STRIPE_MIN_USD_CENTS } from '@/lib/currency';
 import { syncOrderToSanity, syncCustomRequestToSanity } from '@/lib/services/sanity-sync.service';
 
 export const dynamic = 'force-dynamic';
@@ -73,7 +75,42 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Stripe is not fully configured.' }, { status: 500 });
       }
 
-      const stripeCurrency = 'usd'; // using usd for test environment
+      // Convert the SYP quote to USD using the admin-set rate.
+      //
+      // This path had the same defect the main checkout did: it passed the
+      // raw SYP figure to Stripe as USD, so a 500,000 SYP quote would have
+      // been charged as $500,000. Fixing only the main checkout left this
+      // one live — custom orders are the highest-value line in the business.
+      const stripeCurrency = 'usd';
+      let sypPerUsd: number;
+      try {
+        const currencySettings = await getCurrencySettings();
+        const rate = currencySettings?.sypPerUsd;
+        sypToUsdCents(1, rate as number); // throws if unset/invalid
+        sypPerUsd = rate as number;
+      } catch (rateErr) {
+        console.error('[checkout/custom] Exchange rate unavailable:', rateErr);
+        return NextResponse.json(
+          {
+            error:
+              'Card payment is temporarily unavailable. Please try the other payment method or contact us.',
+          },
+          { status: 503 }
+        );
+      }
+
+      const chargedAmountCents = sypToUsdCents(totalAmount, sypPerUsd);
+      if (chargedAmountCents < STRIPE_MIN_USD_CENTS) {
+        return NextResponse.json(
+          {
+            error: `This quote is below the minimum this payment method accepts (${
+              STRIPE_MIN_USD_CENTS / 100
+            } USD). Please use the other payment method.`,
+          },
+          { status: 422 }
+        );
+      }
+
       const stripeSession = await getStripe().checkout.sessions.create({
         payment_method_types: ['card'],
         line_items: [
@@ -84,7 +121,7 @@ export async function POST(req: NextRequest) {
                 name: customRequest.title,
                 description: 'Custom Order Request',
               },
-              unit_amount: Math.round(totalAmount * 100),
+              unit_amount: chargedAmountCents,
             },
             quantity: 1,
           },

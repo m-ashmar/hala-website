@@ -347,6 +347,35 @@ export async function getFeaturedPromotions(): Promise<SanityPromotion[]> {
  * Returns a single active promotion by its coupon code.
  * Used by the validate-coupon API to determine product/category scope.
  */
+/**
+ * Resolves category per sanityId, for coupon scope checks.
+ *
+ * Shared by the coupon validation endpoint and checkout so both apply the
+ * same scope rules — they previously had separate copies that drifted.
+ *
+ * Returns {} on failure. Callers must treat an empty map as "scope could not
+ * be resolved" and fail closed (no discount) rather than assuming everything
+ * is eligible.
+ */
+export async function getProductCategoriesByIds(
+  sanityIds: string[]
+): Promise<Record<string, string>> {
+  if (sanityIds.length === 0) return {}
+  try {
+    const results: { sanityId: string; category: string }[] = await client.fetch(
+      `*[_type == "product" && sanityId.current in $ids]{ "sanityId": sanityId.current, category }`,
+      { ids: sanityIds }
+    )
+    const map: Record<string, string> = {}
+    for (const r of results) {
+      if (r.sanityId && r.category) map[r.sanityId] = r.category.toLowerCase()
+    }
+    return map
+  } catch {
+    return {}
+  }
+}
+
 export async function getPromotionByCouponCode(code: string): Promise<SanityPromotion | null> {
   const now = new Date()
   const today = now.toISOString()

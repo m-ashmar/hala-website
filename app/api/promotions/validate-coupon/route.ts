@@ -28,8 +28,8 @@ export const dynamic = 'force-dynamic';
 
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
-import { getPromotionByCouponCode } from '@/sanity/lib/queries';
-import { client } from '@/sanity/lib/client';
+import { getPromotionByCouponCode, getProductCategoriesByIds } from '@/sanity/lib/queries';
+import { computeDiscount, eligibleItemsFor } from '@/lib/coupon-scope';
 import { createRateLimiter } from '@/lib/rate-limit';
 import { validateCsrfOrigin, getClientIp } from '@/lib/security';
 
@@ -58,27 +58,6 @@ export interface ValidateCouponItem {
   quantity: number;
   /** Optional — sent by client but we re-verify server-side */
   category?: string;
-}
-
-/** Fetches the category for each sanityId in one Sanity query */
-async function fetchProductCategories(sanityIds: string[]): Promise<Record<string, string>> {
-  if (sanityIds.length === 0) return {};
-  try {
-    const results: { sanityId: string; category: string }[] = await client.fetch(
-      `*[_type == "product" && sanityId.current in $ids]{ "sanityId": sanityId.current, category }`,
-      { ids: sanityIds }
-    );
-    const map: Record<string, string> = {};
-    for (const r of results) {
-      if (r.sanityId && r.category) {
-        map[r.sanityId] = r.category.toLowerCase();
-      }
-    }
-    return map;
-  } catch {
-    // Fail open — if Sanity is unreachable, treat all items as uncategorized
-    return {};
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -127,7 +106,7 @@ export async function POST(req: NextRequest) {
     const sanityIds = items.map((i) => i.sanityId);
     const [promotion, categoryMap] = await Promise.all([
       getPromotionByCouponCode(code.trim()),
-      fetchProductCategories(sanityIds),
+      getProductCategoriesByIds(sanityIds),
     ]);
 
     const linkedSanityIds = new Set<string>(
@@ -136,7 +115,6 @@ export async function POST(req: NextRequest) {
     const linkedCategories = new Set<string>(
       (promotion?.linkedCategories ?? []).map((c) => c.toLowerCase())
     );
-    const hasScope = linkedSanityIds.size > 0 || linkedCategories.size > 0;
 
     // ── 3. Compute subtotals ────────────────────────────────────────────────
     const fullSubtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -147,37 +125,45 @@ export async function POST(req: NextRequest) {
       resolvedCategory: (categoryMap[i.sanityId] ?? i.category ?? '').toLowerCase(),
     }));
 
-    // Items eligible for this coupon
-    const eligibleItems = hasScope
-      ? enrichedItems.filter(
-          (i) =>
-            linkedSanityIds.has(i.sanityId) ||
-            (i.resolvedCategory && linkedCategories.has(i.resolvedCategory))
-        )
-      : enrichedItems; // no scope = all items
+    // Scope + discount come from lib/coupon-scope, shared verbatim with the
+    // checkout route. These two had drifted: checkout applied the discount to
+    // the whole cart and skipped minOrderAmount entirely, so a scoped coupon
+    // over-discounted mixed carts. One implementation now serves both.
+    const scope = { linkedSanityIds, linkedCategories };
+    const scopedItems = enrichedItems.map((i) => ({
+      sanityId: i.sanityId,
+      price: i.price,
+      quantity: i.quantity,
+      category: i.resolvedCategory,
+    }));
 
-    const eligibleAmount = eligibleItems.reduce((sum, i) => sum + i.price * i.quantity, 0);
-    const eligibleSanityIds = eligibleItems.map((i) => i.sanityId);
+    const outcome = computeDiscount(
+      scopedItems,
+      {
+        discountType: coupon.discountType as 'PERCENTAGE' | 'FIXED',
+        discountValue: Number(coupon.discountValue),
+        minOrderAmount: coupon.minOrderAmount ? Number(coupon.minOrderAmount) : null,
+      },
+      scope
+    );
 
-    // Check minimum order amount against eligible subtotal
-    const minAmount = coupon.minOrderAmount ? Number(coupon.minOrderAmount) : 0;
-    if (eligibleAmount < minAmount) {
-      const currency = process.env.NEXT_PUBLIC_CURRENCY ?? 'SYP';
+    const currency = process.env.NEXT_PUBLIC_CURRENCY ?? 'SYP';
+
+    if (!outcome.ok) {
+      if (outcome.reason === 'BELOW_MINIMUM') {
+        return NextResponse.json({
+          valid: false,
+          error: `Minimum eligible order amount for this coupon is ${outcome.minOrderAmount.toLocaleString()} ${currency}.`,
+        }, { status: 400 });
+      }
       return NextResponse.json({
         valid: false,
-        error: `Minimum eligible order amount for this coupon is ${minAmount.toLocaleString()} ${currency}.`,
+        error: 'This coupon does not apply to any item in your cart.',
       }, { status: 400 });
     }
 
-    // ── 4. Calculate discount (only on eligible amount) ─────────────────────
-    let discountAmount = 0;
-    if (coupon.discountType === 'PERCENTAGE') {
-      discountAmount = Math.round((eligibleAmount * Number(coupon.discountValue)) / 100);
-    } else {
-      // FIXED — capped at eligibleAmount
-      discountAmount = Math.min(Number(coupon.discountValue), eligibleAmount);
-    }
-
+    const { eligibleAmount, discountAmount } = outcome;
+    const eligibleSanityIds = eligibleItemsFor(scopedItems, scope).map((i) => i.sanityId);
     const finalAmount = Math.max(0, fullSubtotal - discountAmount);
 
     // ── 5. Build a human-readable scope label ───────────────────────────────
