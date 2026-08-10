@@ -317,8 +317,11 @@ correction. The business cannot actually run on this.
   leaving its primary free acquisition channel on the table.
 - **Done when:** Both resolve and include localized product URLs.
 
-### 4.4 — Cookie/analytics consent (if analytics added) `[ ]` — **S**
+### 4.4 — Cookie/analytics consent (if analytics added) `[N/A]` — **S**
 - **Why:** Required if you introduce analytics for EU/diaspora visitors.
+- **Status:** Not applicable — no analytics or tracking has been added, so there
+  is nothing to consent to. Becomes required the moment any is introduced
+  (see suggested feature 7.6).
 
 ---
 
@@ -398,11 +401,13 @@ make the codebase read as more complete than it is, and they cost real bytes.
 - **Done when:** Push runs typecheck + lint + tests + build, and blocks merge on
   failure.
 
-### 6.3 — Staging environment `[ ]` — **S**
+### 6.3 — Staging environment `[→ you]` — **S**
 - **Why:** Payment and webhook changes are being verified against production
   credentials or not at all.
 - **Done when:** A staging deploy exists with Stripe test keys and a separate
   Sanity dataset.
+- **Status:** Requires provisioning a hosting environment and separate
+  credentials — yours to create. Tracked in `ACTION_REQUIRED.md` §7.
 
 ---
 

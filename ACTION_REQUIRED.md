@@ -1,5 +1,10 @@
 # Action Required — things only you can do
 
+> **Plan status: 31 of 33 items complete.** The two remaining are
+> `4.4 cookie consent` (not applicable — no analytics have been added) and
+> `6.3 staging environment` (§7 below — needs a hosting environment you own).
+> Full detail in `PRODUCTION_READINESS_PLAN.md`.
+
 > Everything the codebase cannot do for itself: database migrations, external
 > service sign-ups, secrets, and CMS content. Grouped by urgency.
 >
