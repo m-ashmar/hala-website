@@ -24,6 +24,21 @@ export interface ValidatedOrderItem {
   customization?: Record<string, string>;
 }
 
+/**
+ * Immutable snapshot of where an order ships. Denormalised on purpose — the
+ * customer's saved Address may later be edited or deleted, and a fulfilled
+ * order must always retain the address it was actually shipped to.
+ */
+export interface ShippingSnapshot {
+  shippingAddressId?: string | null;
+  shippingFullName?: string | null;
+  shippingPhone?: string | null;
+  shippingAddressLine1?: string | null;
+  shippingAddressLine2?: string | null;
+  shippingCity?: string | null;
+  shippingCountry?: string | null;
+}
+
 export interface CreateOrderInput {
   customer: CheckoutPayload['customer'];
   items: ValidatedOrderItem[];
@@ -34,6 +49,7 @@ export interface CreateOrderInput {
   userId?: string;
   couponId?: string;
   discountAmount?: number;
+  shipping?: ShippingSnapshot;
 }
 
 // ── Reference code generator ──────────────────────────────────────────────────
@@ -94,6 +110,7 @@ export async function createPendingOrder(input: CreateOrderInput) {
       userId: input.userId ?? null,
       couponId: input.couponId ?? null,
       discountAmount: input.discountAmount ?? 0,
+      ...(input.shipping ?? {}),
       items: {
         create: input.items.map((item) => ({
           productSyncId: item.productSyncId,

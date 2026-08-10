@@ -71,6 +71,17 @@ const checkoutSchema = z.object({
     phone: z.string().max(30).optional(),
     note: z.string().max(500).optional(),
   }),
+  // Required: these are physical goods and cannot be fulfilled without it.
+  shippingAddress: z.object({
+    fullName: z.string().min(2, 'Recipient name is required').max(100),
+    phone: z.string().min(6, 'A contact phone is required').max(30),
+    addressLine1: z.string().min(3, 'Street address is required').max(200),
+    addressLine2: z.string().max(200).optional(),
+    city: z.string().min(2, 'City is required').max(100),
+    country: z.string().min(2).max(100).default('Syria'),
+    /** Optional id of a saved address, for account convenience only. */
+    savedAddressId: z.string().optional(),
+  }),
   paymentMethod: z.enum(['shamcash', 'stripe']),
   couponId: z.string().optional(),
 });
@@ -98,7 +109,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { items: cartItems, customer, paymentMethod } = parsed.data;
+    const { items: cartItems, customer, paymentMethod, shippingAddress } = parsed.data;
+
+    // Flattened snapshot reused by both payment paths. Stored on the order
+    // itself rather than only referenced, so a later edit or deletion of the
+    // customer's saved address can never change where an order was shipped.
+    const shippingSnapshot = {
+      shippingAddressId: shippingAddress.savedAddressId ?? null,
+      shippingFullName: shippingAddress.fullName,
+      shippingPhone: shippingAddress.phone,
+      shippingAddressLine1: shippingAddress.addressLine1,
+      shippingAddressLine2: shippingAddress.addressLine2 ?? null,
+      shippingCity: shippingAddress.city,
+      shippingCountry: shippingAddress.country,
+    };
 
     // Fix Bug 2: Get the authenticated user's ID
     const session = await auth();
@@ -279,6 +303,7 @@ export async function POST(req: NextRequest) {
         chargedAmount: chargedAmountCents / 100,
         chargedCurrency: stripeCurrency.toUpperCase(),
         exchangeRate: sypPerUsd,
+        ...shippingSnapshot,
       });
 
       let stripeDiscounts: { coupon: string }[] | undefined;
@@ -337,6 +362,7 @@ export async function POST(req: NextRequest) {
       userId,
       couponId,
       discountAmount,
+      shipping: shippingSnapshot,
     });
 
     void getOrderWithItemsById(order.id).then((full) => {

@@ -22,6 +22,14 @@ export interface CreateCheckoutDraftInput {
   chargedCurrency?: string;
   /** SYP per 1 USD at purchase time — snapshotted so later rate edits don't restate this order. */
   exchangeRate?: number;
+  // Shipping address snapshot (see ShippingSnapshot in order.repository).
+  shippingAddressId?: string | null;
+  shippingFullName?: string | null;
+  shippingPhone?: string | null;
+  shippingAddressLine1?: string | null;
+  shippingAddressLine2?: string | null;
+  shippingCity?: string | null;
+  shippingCountry?: string | null;
 }
 
 /**
@@ -47,6 +55,13 @@ export async function createCheckoutDraft(input: CreateCheckoutDraftInput) {
       chargedAmount: input.chargedAmount,
       chargedCurrency: input.chargedCurrency,
       exchangeRate: input.exchangeRate,
+      shippingAddressId: input.shippingAddressId,
+      shippingFullName: input.shippingFullName,
+      shippingPhone: input.shippingPhone,
+      shippingAddressLine1: input.shippingAddressLine1,
+      shippingAddressLine2: input.shippingAddressLine2,
+      shippingCity: input.shippingCity,
+      shippingCountry: input.shippingCountry,
       expiresAt: input.expiresAt,
       status: 'PENDING',
     },

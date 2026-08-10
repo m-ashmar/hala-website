@@ -98,7 +98,19 @@ export default function CheckoutPage() {
   const [verifyStatus, setVerifyStatus] = useState<'pending' | 'confirmed' | 'expired'>('pending');
   const [formError, setFormError] = useState('');
 
-  const [form, setForm] = useState({ name: '', email: '', phone: '', note: '' });
+  const [form, setForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    note: '',
+    // Shipping destination — required, these are physical goods.
+    shipFullName: '',
+    shipPhone: '',
+    shipAddressLine1: '',
+    shipAddressLine2: '',
+    shipCity: '',
+    shipCountry: 'Syria',
+  });
   const [paymentMethod, setPaymentMethod] = useState<'shamcash' | 'stripe'>('shamcash');
 
   const updateForm = (field: string, value: string) =>
@@ -133,6 +145,14 @@ export default function CheckoutPage() {
             snapshotImageUrl: i.snapshotImageUrl,
           })),
           customer: { name: form.name, email: form.email, phone: form.phone || undefined, note: form.note || undefined },
+          shippingAddress: {
+            fullName: form.shipFullName || form.name,
+            phone: form.shipPhone || form.phone,
+            addressLine1: form.shipAddressLine1,
+            addressLine2: form.shipAddressLine2 || undefined,
+            city: form.shipCity,
+            country: form.shipCountry || 'Syria',
+          },
           paymentMethod,
           ...(couponId && { couponId }),
         }),
@@ -265,6 +285,89 @@ export default function CheckoutPage() {
                   placeholder="Any special instructions..."
                   value={form.note}
                   onChange={e => updateForm('note', e.target.value)}
+                />
+              </div>
+
+              {/* ── Shipping address ── */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.paymentLabel}>Shipping Address</label>
+              </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>Recipient Name *</label>
+                <input
+                  className={styles.input}
+                  type="text"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                  placeholder="Who should receive this order"
+                  value={form.shipFullName}
+                  onChange={e => updateForm('shipFullName', e.target.value)}
+                />
+              </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>Delivery Phone *</label>
+                <input
+                  className={styles.input}
+                  type="tel"
+                  required
+                  minLength={6}
+                  maxLength={30}
+                  placeholder="Contact number for the courier"
+                  value={form.shipPhone}
+                  onChange={e => updateForm('shipPhone', e.target.value)}
+                />
+              </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>Street Address *</label>
+                <input
+                  className={styles.input}
+                  type="text"
+                  required
+                  minLength={3}
+                  maxLength={200}
+                  placeholder="Street, building, apartment"
+                  value={form.shipAddressLine1}
+                  onChange={e => updateForm('shipAddressLine1', e.target.value)}
+                />
+              </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>
+                  Address Line 2
+                  <span className={styles.labelOptional}>(optional)</span>
+                </label>
+                <input
+                  className={styles.input}
+                  type="text"
+                  maxLength={200}
+                  placeholder="Landmark, directions"
+                  value={form.shipAddressLine2}
+                  onChange={e => updateForm('shipAddressLine2', e.target.value)}
+                />
+              </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>City *</label>
+                <input
+                  className={styles.input}
+                  type="text"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                  placeholder="e.g. Damascus"
+                  value={form.shipCity}
+                  onChange={e => updateForm('shipCity', e.target.value)}
+                />
+              </div>
+              <div className={styles.fieldGroup}>
+                <label className={styles.label}>Country *</label>
+                <input
+                  className={styles.input}
+                  type="text"
+                  required
+                  minLength={2}
+                  maxLength={100}
+                  value={form.shipCountry}
+                  onChange={e => updateForm('shipCountry', e.target.value)}
                 />
               </div>
 

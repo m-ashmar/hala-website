@@ -122,7 +122,7 @@ can't be fulfilled. These are the money-and-goods blockers.
   whose amount matches the intended real-world charge, verified in the Stripe
   dashboard.
 
-### 1.2 — Add shipping addresses to the order pipeline `[ ]` — **L**
+### 1.2 — Add shipping addresses to the order pipeline `[x]` — **L**
 - **Why:** `Order` has **no address fields**. Checkout collects only name,
   email, phone, note. The `Address` model exists with a full account UI but has
   **no relation to `Order`**. You can take payment and have no idea where to

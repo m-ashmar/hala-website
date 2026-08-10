@@ -10,6 +10,13 @@ interface Order {
   createdAt: string;
   user: { name: string | null; email: string | null } | null;
   items: { quantity: number; priceAtPurchase: number; productSync: { sanityId: string } }[];
+  // Shipping snapshot — null on orders placed before addresses were captured.
+  shippingFullName: string | null;
+  shippingPhone: string | null;
+  shippingAddressLine1: string | null;
+  shippingAddressLine2: string | null;
+  shippingCity: string | null;
+  shippingCountry: string | null;
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -91,6 +98,21 @@ export default function OrdersPage() {
                               <span style={{ color: '#CFA18D', fontWeight: 600 }}>${(item.priceAtPurchase * item.quantity).toFixed(2)}</span>
                             </div>
                           ))}
+                          {/* Shipping destination — required to fulfil the order */}
+                          <div style={{ fontSize: '0.75rem', color: 'rgba(250,247,245,0.35)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '18px 0 10px' }}>Ship To</div>
+                          {o.shippingAddressLine1 ? (
+                            <div style={{ color: 'rgba(250,247,245,0.7)', fontSize: '0.85rem', lineHeight: 1.7 }}>
+                              <div style={{ color: '#FAF7F5', fontWeight: 600 }}>{o.shippingFullName}</div>
+                              <div>{o.shippingPhone}</div>
+                              <div>{o.shippingAddressLine1}</div>
+                              {o.shippingAddressLine2 && <div>{o.shippingAddressLine2}</div>}
+                              <div>{[o.shippingCity, o.shippingCountry].filter(Boolean).join(', ')}</div>
+                            </div>
+                          ) : (
+                            <div style={{ color: 'rgba(250,247,245,0.35)', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                              No address on file — placed before shipping addresses were collected.
+                            </div>
+                          )}
                           {o.paymentIntentId && (
                             <div style={{ marginTop: 10, fontSize: '0.75rem', color: 'rgba(250,247,245,0.3)', fontFamily: 'monospace' }}>
                               Payment: {o.paymentIntentId}

@@ -185,6 +185,19 @@ model Order {
   customerPhone String?
   customerNote  String? @db.Text
 
+  // ── Shipping address ──────────────────────────────────────────────────
+  // Stored as a SNAPSHOT, not only as a relation: the customer may later
+  // edit or delete the saved Address, and a fulfilled order must always
+  // retain the address it was actually shipped to.
+  // `shippingAddressId` is kept alongside purely for account convenience.
+  shippingAddressId    String?
+  shippingFullName     String?
+  shippingPhone        String?
+  shippingAddressLine1 String?
+  shippingAddressLine2 String?
+  shippingCity         String?
+  shippingCountry      String?
+
   // Applied coupon (if any)
   couponId       String?
   coupon         Coupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
@@ -357,6 +370,16 @@ model CheckoutDraft {
   chargedAmount   Float?
   chargedCurrency String?
   exchangeRate    Float?
+
+  // Shipping address snapshot, captured before redirecting to Stripe so the
+  // resulting order inherits exactly what the customer entered.
+  shippingAddressId    String?
+  shippingFullName     String?
+  shippingPhone        String?
+  shippingAddressLine1 String?
+  shippingAddressLine2 String?
+  shippingCity         String?
+  shippingCountry      String?
 
   // Stripe linkage — set after session creation
   stripeSessionId String?            @unique
