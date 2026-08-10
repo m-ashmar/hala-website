@@ -4,6 +4,14 @@ import prisma from "./lib/prisma";
 import CredentialsProvider from "next-auth/providers/credentials";
 import argon2 from "argon2";
 import { authConfig } from "./auth.config";
+import { createRateLimiter } from "./lib/rate-limit";
+
+/**
+ * 5 OTP verification attempts per phone number per 10 minutes — roughly the
+ * lifetime of a code. Enough for a genuine mistyping, far too few to brute
+ * force a 6-digit secret.
+ */
+const otpVerifyLimiter = createRateLimiter({ limit: 5, windowMs: 10 * 60_000 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -59,6 +67,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const phone = credentials.phone as string;
         const code = credentials.code as string;
+
+        // Rate-limit verification attempts.
+        //
+        // Sending an OTP was limited, but checking one was not — leaving a
+        // 6-digit code (1,000,000 combinations) open to brute force. The
+        // limiter is keyed by phone number rather than IP, because the phone
+        // is what an attacker is trying to take over and it cannot be
+        // rotated as cheaply as a source address.
+        const limited = await otpVerifyLimiter.check(`otp_verify_${phone}`);
+        if (limited) {
+          return null;
+        }
 
         // Verify the code
         const verification = await prisma.phoneVerification.findFirst({

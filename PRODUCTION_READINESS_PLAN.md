@@ -215,7 +215,7 @@ correction. The business cannot actually run on this.
 
 ## Block 3 — Infrastructure hardening
 
-### 3.1 — Make rate limiting real `[ ]` — **M**
+### 3.1 — Make rate limiting real `[x]` — **M**
 - **Why:** `lib/rate-limit.ts` is an in-memory `Map`, per-process. On serverless
   every concurrent instance gets its own empty store, so the 5/min OTP, 3/min
   checkout and 10/min upload limits **effectively do not exist in production**.
@@ -227,13 +227,13 @@ correction. The business cannot actually run on this.
 - **Done when:** Limits hold across concurrent instances, verified by exceeding
   a limit against a deployed preview.
 
-### 3.2 — Rate-limit OTP *verification* `[ ]` — **S**
+### 3.2 — Rate-limit OTP *verification* `[x]` — **S**
 - **Why:** Sending is limited; verifying is not. The 6-digit code is
   brute-forceable.
 - **Files:** `auth.ts` (whatsapp provider `authorize`)
 - **Done when:** Repeated wrong codes for a phone number lock out temporarily.
 
-### 3.3 — Patch dependency vulnerabilities `[ ]` — **M**
+### 3.3 — Patch dependency vulnerabilities `[x]` — **M**
 - **Why:** 25 vulnerabilities — **2 critical, 14 high**. The critical ones are
   in `next-auth`/`@auth/core`, and one reads *"Configuration errors can cause
   existence-based auth checks to fail open."* Every admin check here is
@@ -243,14 +243,14 @@ correction. The business cannot actually run on this.
 - **Done when:** Zero critical/high in `npm audit --omit=dev`; build + auth
   flows re-verified after upgrade.
 
-### 3.4 — Get off `next-auth` beta `[ ]` — **M**
+### 3.4 — Get off `next-auth` beta `[x]` — **M**
 - **Why:** `^5.0.0-beta.31` — beta software guarding money and PII, with a caret
   that permits auto-upgrading to arbitrary future betas.
 - **Fix:** Move to a stable release; failing that, pin exactly (no caret).
 - **Done when:** Version is stable or exactly pinned; login + admin gating
   re-verified.
 
-### 3.5 — Strengthen order reference codes `[ ]` — **S**
+### 3.5 — Strengthen order reference codes `[x]` — **S**
 - **Why:** `Math.random()` with 4 base-36 chars. The checkout file's own comment
   claims "cryptographically random enough to prevent guessing" — it is not.
   `/api/orders/by-reference` is unauthenticated and returns order contents, so
@@ -261,7 +261,7 @@ correction. The business cannot actually run on this.
 - **Done when:** Codes are CSPRNG-derived with ≥8 random chars and collisions
   are handled.
 
-### 3.6 — Fix the custom-request duplicate-order race `[ ]` — **S**
+### 3.6 — Fix the custom-request duplicate-order race `[x]` — **S**
 - **Why:** `stripe-return` and the Stripe webhook both create an order for
   `type=custom_request` behind a non-atomic `if (!order)` check. Standard
   checkout is protected by a unique `stripeSessionId`; this path is not. Two
@@ -279,7 +279,7 @@ correction. The business cannot actually run on this.
   a zero-count result as insufficient stock.
 - **Done when:** Concurrent confirms cannot drive stock below zero.
 
-### 3.8 — Security headers & image optimization `[ ]` — **S**
+### 3.8 — Security headers & image optimization `[x]` — **S**
 - **Why:** Missing CSP, HSTS, Permissions-Policy. `images.unoptimized: true`
   disables Next's image pipeline entirely — `hero-bg.png` 500KB,
   `brand-story.png` 570KB, `logo.jpg` 423KB ship raw, which is expensive on
@@ -287,7 +287,7 @@ correction. The business cannot actually run on this.
 - **Files:** `next.config.ts`
 - **Done when:** Headers present in prod responses; images served optimized.
 
-### 3.9 — Migrate `middleware.ts` → `proxy.ts` `[ ]` — **S**
+### 3.9 — Migrate `middleware.ts` → `proxy.ts` `[x]` — **S**
 - **Why:** Deprecated in Next 16; warns on every build.
 - **Done when:** Build is warning-free and route protection still works.
 

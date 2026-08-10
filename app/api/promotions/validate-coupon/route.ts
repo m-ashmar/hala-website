@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Rate limit by IP
     const ip = getClientIp(req);
-    const rateLimitError = couponLimiter.check(`coupon_${ip}`);
+    const rateLimitError = await couponLimiter.check(`coupon_${ip}`);
     if (rateLimitError) return rateLimitError;
 
     // 3. Validate body

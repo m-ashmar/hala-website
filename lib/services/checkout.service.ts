@@ -5,6 +5,7 @@ import { recordCouponUsage } from '../repositories/coupon.repository';
 import { notifyOrderConfirmed } from './order-notification.service';
 import { generateReferenceCode } from '../repositories/order.repository';
 import { syncOrderToSanity } from './sanity-sync.service';
+import { logger } from '@/lib/logger';
 
 /**
  * Creates a confirmed Stripe order from a CheckoutDraft.
@@ -104,7 +105,15 @@ export async function fulfillStripeCheckout(
     // Record the redemption in the same transaction, so a coupon is never
     // counted against an order that failed to be created.
     if (draft.couponId) {
-      await recordCouponUsage(tx, draft.couponId, newOrder.id, draft.userId);
+      const outcome = await recordCouponUsage(tx, draft.couponId, newOrder.id, draft.userId);
+      if (outcome === 'LIMIT_EXCEEDED') {
+        // The customer has already been charged; the order stands. Logged so
+        // an over-issued coupon can be reconciled.
+        logger.warn(
+          { orderId: newOrder.id, couponId: draft.couponId },
+          '[Coupon] Redeemed past maxUses — coupon over-issued, needs review'
+        );
+      }
     }
 
     return newOrder;

@@ -15,6 +15,7 @@ import { headers } from 'next/headers';
 import { logger } from '@/lib/logger';
 import { createPendingOrder, generateReferenceCode } from '@/lib/repositories/order.repository';
 import { notifyOrderConfirmed } from '@/lib/services/order-notification.service';
+import { fulfillCustomRequestPayment } from '@/lib/services/custom-request-checkout.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,74 +65,13 @@ export async function POST(req: NextRequest) {
 
         if (type === 'custom_request' && customRequestId) {
           logger.info({ customRequestId }, '[Stripe Webhook] Fulfilling custom request payment');
-          
-          const customRequest = await prisma.customRequest.findUnique({
-            where: { id: customRequestId },
-          });
-
-          if (customRequest) {
-            // Ensure dummy product sync exists for foreign key constraint
-            await prisma.productSync.upsert({
-              where: { sanityId: 'custom-request' },
-              update: {},
-              create: {
-                id: 'custom-request-item',
-                sanityId: 'custom-request',
-                price: 0,
-                stock: 999999,
-                isActive: true,
-              }
-            });
-
-            // Create an order for the custom request
-            const order = await createPendingOrder({
-              customer: {
-                name: customRequest.name,
-                email: customRequest.email,
-              },
-              items: [
-                {
-                  productSyncId: 'custom-request-item',
-                  sanityId: 'custom-request',
-                  quantity: 1,
-                  priceAtPurchase: customRequest.quotePrice || 0,
-                  snapshotTitle: customRequest.title,
-                  customization: { customRequestId: customRequest.id },
-                } as any,
-              ],
-              totalAmount: customRequest.quotePrice || 0,
-              referenceCode: generateReferenceCode(),
-              currency: customRequest.currency || 'SYP',
-              expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
-              userId: customRequest.userId ?? undefined,
-            });
-
-            // Mark order as paid
-            await confirmOrderPayment(order.id, paymentIntentId || undefined);
-            
-            // Mark custom request as PAID and link order
-            const updatedCr = await prisma.customRequest.update({
-              where: { id: customRequestId },
-              data: { status: 'PAID', orderId: order.id },
-            });
-
-            // Sync both to Sanity
-            queueOrderSync(order.id);
-            syncCustomRequestToSanity({
-              id: updatedCr.id,
-              name: updatedCr.name,
-              email: updatedCr.email,
-              title: updatedCr.title,
-              details: updatedCr.details,
-              imageUrls: updatedCr.imageUrls,
-              requestedQuantity: updatedCr.requestedQuantity,
-              status: updatedCr.status,
-              quotePrice: updatedCr.quotePrice,
-              currency: updatedCr.currency,
-              estimatedDays: updatedCr.estimatedDays,
-              adminNotes: updatedCr.adminNotes,
-            });
-          }
+          // Shared, idempotent path — this and /checkout/stripe-return race,
+          // and exactly one order results regardless of which lands first.
+          await fulfillCustomRequestPayment(
+            customRequestId,
+            session.id,
+            paymentIntentId || null
+          );
           return NextResponse.json({ received: true }, { status: 200 });
         }
 

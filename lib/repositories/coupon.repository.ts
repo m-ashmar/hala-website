@@ -8,7 +8,7 @@
  */
 
 import prisma, { type TxClient } from '@/lib/prisma'
-import { DiscountType } from '@prisma/client'
+import { DiscountType, Prisma } from '@prisma/client'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -132,41 +132,75 @@ export async function incrementCouponUsage(id: string) {
   })
 }
 
+export type CouponRedemptionOutcome =
+  /** First time this order redeemed this coupon; usedCount was incremented. */
+  | 'RECORDED'
+  /** This exact (coupon, order) pair was already recorded — replayed webhook. */
+  | 'ALREADY_RECORDED'
+  /** Recorded, but the coupon was already at maxUses. Requires attention. */
+  | 'LIMIT_EXCEEDED'
+
 /**
  * Records a coupon redemption against an order.
  *
- * Must run inside the same transaction that confirms the order, so a coupon
- * can never be counted for an order that failed to complete.
+ * Must run inside the same transaction that confirms the order, so a coupon is
+ * never counted against an order that failed to complete.
  *
- * Idempotent: CouponUsage has a unique [couponId, orderId] constraint, so a
- * replayed payment webhook inserts nothing and `usedCount` is only bumped
- * when a redemption is genuinely new. Without this, `usedCount` stayed 0
- * forever and `maxUses` was unenforceable.
+ * ── Guard 1: replay protection ──
+ * Attempts an explicit insert and catches the unique-constraint violation on
+ * [couponId, orderId] (Prisma P2002). This is deliberately explicit rather
+ * than `skipDuplicates`, so a replay is a named, testable outcome rather than
+ * an invisible no-op — a payment webhook redelivered by Stripe must not
+ * inflate usedCount.
  *
- * @param tx      Prisma transaction client
- * @param couponId Coupon being redeemed
- * @param orderId  Order it was redeemed against
- * @param userId   Redeeming user, when known (null for guest checkout)
+ * ── Guard 2: atomic limit enforcement ──
+ * The increment is a single conditional statement that only fires while
+ * usedCount < maxUses. Checking in application code first would be a
+ * check-then-act race: two concurrent redemptions could both read
+ * usedCount = 49 against maxUses = 50 and both proceed. Raw SQL is required
+ * because Prisma cannot express a column-to-column comparison in `where`.
+ *
+ * If the limit is already reached the usage row is still kept — the customer
+ * has been charged a discounted price and that fact must be auditable — but
+ * the caller is told via LIMIT_EXCEEDED so it can be surfaced. Rolling the
+ * order back is not an option once money has moved.
  */
 export async function recordCouponUsage(
   tx: TxClient,
   couponId: string,
   orderId: string,
   userId?: string | null
-): Promise<boolean> {
-  const inserted = await tx.couponUsage.createMany({
-    data: [{ couponId, orderId, userId: userId ?? null }],
-    skipDuplicates: true,
-  })
+): Promise<CouponRedemptionOutcome> {
+  // ── Guard 1 ──
+  try {
+    await tx.couponUsage.create({
+      data: { couponId, orderId, userId: userId ?? null },
+    })
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2002'
+    ) {
+      return 'ALREADY_RECORDED'
+    }
+    throw err
+  }
 
-  // Only count the redemption if this is the first time we've seen it.
-  if (inserted.count === 0) return false
+  // ── Guard 2 ──
+  // Conditional increment. Returns the number of rows actually updated.
+  const updated = await tx.$executeRaw`
+    UPDATE "Coupon"
+       SET "usedCount" = "usedCount" + 1
+     WHERE "id" = ${couponId}
+       AND ("maxUses" IS NULL OR "usedCount" < "maxUses")
+  `
 
-  await tx.coupon.update({
-    where: { id: couponId },
-    data: { usedCount: { increment: 1 } },
-  })
-  return true
+  if (updated === 0) {
+    // The usage row stands (money moved), but the coupon was exhausted.
+    return 'LIMIT_EXCEEDED'
+  }
+
+  return 'RECORDED'
 }
 
 /**

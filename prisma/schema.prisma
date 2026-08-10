@@ -207,9 +207,10 @@ model Order {
   expiresAt DateTime? // when pending order expires waiting for payment
   paidAt    DateTime? // set when payment is confirmed
 
-  items        OrderItem[]
-  couponUsages CouponUsage[]
+  items         OrderItem[]
+  couponUsages  CouponUsage[]
   customRequest CustomRequest?
+  notifications NotificationLog[]
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -346,6 +347,41 @@ model Wishlist {
 /// Stores the full cart snapshot before redirecting to Stripe.
 /// Only checkoutToken + userId go into Stripe metadata — no cart data in metadata.
 /// Guarantees idempotent order creation regardless of whether webhook or browser arrives first.
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+/// Durable outbox for transactional emails.
+///
+/// Sending is intentionally never allowed to roll back a paid order, but
+/// "log it and move on" meant a failed confirmation was lost forever and the
+/// customer silently received nothing. Each attempt is recorded here instead,
+/// so failures are visible and can be retried by the scheduled job rather
+/// than disappearing into the logs.
+model NotificationLog {
+  id        String             @id @default(cuid())
+  orderId   String?
+  order     Order?             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  /// e.g. ORDER_CONFIRMATION, ORDER_SHIPPED, ORDER_DELIVERED
+  type      String
+  recipient String
+  status    NotificationStatus @default(PENDING)
+  attempts  Int                @default(0)
+  lastError String?            @db.Text
+  sentAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// One notification of a given type per order — makes retries and replayed
+  /// webhooks idempotent at the database level.
+  @@unique([orderId, type])
+  @@index([status])
+  @@index([createdAt])
+}
+
 model CheckoutDraft {
   id             String              @id @default(cuid())
   checkoutToken  String              @unique // UUID sent to Stripe metadata

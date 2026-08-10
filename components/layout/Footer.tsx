@@ -68,7 +68,9 @@ export function Footer({ locale = 'en', settings }: FooterProps) {
 
   const whatsappNumber = settings?.whatsappNumber || DEFAULT_WHATSAPP;
   const instagramUrl = settings?.instagramUrl || DEFAULT_INSTAGRAM;
-  const logoUrl = settings?.logoUrl || '/logo.jpg';
+  // `||` (not `??`) so an empty string from the CMS also falls back — an
+  // image field with no uploaded asset yields '' and would render blank.
+  const logoUrl = settings?.logoUrl?.trim() || '/logo.jpg';
   const tagline = (isAr ? settings?.taglineAr : settings?.tagline)
     || (isAr ? 'حيث الأناقة تلتقي بالإبداع' : 'Where elegance meets creativity');
   const footerText = (isAr ? settings?.footerTextAr : settings?.footerText);

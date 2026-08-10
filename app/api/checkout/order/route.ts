@@ -14,7 +14,9 @@
  * Security:
  *  - Rate-limited (via lib/rate-limit)
  *  - Prices are NEVER taken from the request body
- *  - Reference code is cryptographically random enough to prevent guessing
+ *  - Reference code is CSPRNG-derived (crypto.randomBytes, ~8.2e14 keyspace)
+ *    and checked for uniqueness. It is a bearer token for guest order
+ *    lookup, so it must not be guessable.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -28,7 +30,7 @@ import { auth } from '@/auth';
 import { randomUUID } from 'crypto';
 import {
   createPendingOrder,
-  generateReferenceCode,
+  generateUniqueReferenceCode,
   updateOrderStripeSession,
   getOrderWithItemsById,
   type ValidatedOrderItem,
@@ -96,7 +98,7 @@ export async function POST(req: NextRequest) {
 
     // 0b. Rate limit by IP
     const ip = getClientIp(req);
-    const rateLimitError = checkoutLimiter.check(`checkout_${ip}`);
+    const rateLimitError = await checkoutLimiter.check(`checkout_${ip}`);
     if (rateLimitError) return rateLimitError;
 
     // 1. Parse and validate body
@@ -214,7 +216,7 @@ export async function POST(req: NextRequest) {
 
     const totalAmount = Math.max(0, rawSubtotal - discountAmount);
 
-    const referenceCode = generateReferenceCode();
+    const referenceCode = await generateUniqueReferenceCode();
     const timeoutMinutes = parseInt(
       process.env.SHAMCASH_POLL_TIMEOUT_MINUTES ?? '60',
       10

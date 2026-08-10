@@ -393,7 +393,14 @@ export async function getSiteSettings(): Promise<SanitySiteSettings | null> {
   if (!raw) return null
   return {
     ...raw,
-    logoUrl: raw.logo ? urlFor(raw.logo).width(400).auto('format').url() : undefined,
+    // Guard on `.asset`, not on `logo` itself: an image field that exists but
+    // has no uploaded asset is still a truthy object, and urlFor() then yields
+    // an empty string — which renders as a blank 1x1 placeholder rather than
+    // falling back to the bundled logo. Matches the pattern used for every
+    // other image in this file.
+    logoUrl: raw.logo?.asset
+      ? urlFor(raw.logo).width(400).auto('format').url()
+      : undefined,
   }
 }
 

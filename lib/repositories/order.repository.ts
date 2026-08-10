@@ -8,10 +8,12 @@
  * - No Sanity sync calls — that belongs in the service or API route layer
  */
 
+import { randomBytes } from 'crypto';
 import prisma, { type TxClient } from '@/lib/prisma';
 import type { CheckoutPayload } from '@/types/cart';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { recordCouponUsage } from './coupon.repository';
+import { logger } from '@/lib/logger';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -60,11 +62,68 @@ export interface CreateOrderInput {
  * Format: HL-YYYYMMDD-XXXX (e.g. HL-20260707-A3F2)
  * Customers include this in their ShamCash transfer note.
  */
+/**
+ * Alphabet for reference codes: uppercase alphanumerics minus the characters
+ * people misread aloud or in handwriting (I/1, O/0, U vs V). Codes are read
+ * over the phone and copied into transfer notes, so ambiguity is a real cost.
+ */
+const REFERENCE_ALPHABET = 'ABCDEFGHJKLMNPQRSTVWXYZ23456789';
+const REFERENCE_LENGTH = 10;
+
+/**
+ * Generates an order reference code.
+ *
+ * Security note: this is the lookup key for /api/orders/by-reference, which is
+ * unauthenticated by design so guests can track an order. That makes the code a
+ * bearer token over customer data, and it must not be guessable.
+ *
+ * The previous implementation used Math.random() with 4 base-36 characters
+ * (~1.7M combinations, non-CSPRNG, and predictable from prior outputs) while
+ * the checkout route's own comment claimed it was "cryptographically random
+ * enough to prevent guessing". It was not.
+ *
+ * This uses crypto.randomBytes with rejection sampling — taking bytes modulo
+ * the alphabet length would bias the earlier characters — giving
+ * 31^10 ≈ 8.2e14 combinations.
+ */
 export function generateReferenceCode(): string {
   const date = new Date();
   const datePart = date.toISOString().slice(0, 10).replace(/-/g, '');
-  const randomPart = Math.random().toString(36).toUpperCase().slice(2, 6);
-  return `HL-${datePart}-${randomPart}`;
+
+  // Largest multiple of the alphabet size that fits in a byte; values at or
+  // above it are rejected so every character is uniformly distributed.
+  const limit = 256 - (256 % REFERENCE_ALPHABET.length);
+
+  let out = '';
+  while (out.length < REFERENCE_LENGTH) {
+    for (const byte of randomBytes(REFERENCE_LENGTH)) {
+      if (byte >= limit) continue;
+      out += REFERENCE_ALPHABET[byte % REFERENCE_ALPHABET.length];
+      if (out.length === REFERENCE_LENGTH) break;
+    }
+  }
+
+  return `HL-${datePart}-${out}`;
+}
+
+/**
+ * Generates a reference code guaranteed not to collide with an existing order.
+ *
+ * `referenceCode` is a unique column, so a collision would surface as an
+ * opaque constraint violation at order-creation time. Collisions are
+ * vanishingly unlikely at this entropy, but a failed checkout is expensive
+ * enough to be worth the check.
+ */
+export async function generateUniqueReferenceCode(maxAttempts = 5): Promise<string> {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const code = generateReferenceCode();
+    const existing = await prisma.order.findUnique({
+      where: { referenceCode: code },
+      select: { id: true },
+    });
+    if (!existing) return code;
+  }
+  throw new Error('Could not generate a unique order reference code');
 }
 
 // ── Read operations ───────────────────────────────────────────────────────────
@@ -214,7 +273,15 @@ export async function confirmOrderPayment(orderId: string, stripePaymentIntentId
     // Record the coupon redemption in the same transaction, so a coupon can
     // never be counted against an order that failed to confirm.
     if (order.couponId) {
-      await recordCouponUsage(tx, order.couponId, order.id, order.userId);
+      const outcome = await recordCouponUsage(tx, order.couponId, order.id, order.userId);
+      if (outcome === 'LIMIT_EXCEEDED') {
+        // Not fatal — the customer has already paid the discounted price and
+        // the order must stand. Logged loudly so it can be reconciled.
+        logger.warn(
+          { orderId: order.id, couponId: order.couponId },
+          '[Coupon] Redeemed past maxUses — coupon over-issued, needs review'
+        );
+      }
     }
 
     // Update order status

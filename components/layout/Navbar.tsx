@@ -35,7 +35,10 @@ export interface NavbarProps {
   offsetTop?: number;
 }
 
-export function Navbar({ logoUrl = '/logo.jpg', offsetTop = 0 }: NavbarProps) {
+export function Navbar({ logoUrl, offsetTop = 0 }: NavbarProps) {
+  // Falsy-guard rather than a default parameter: a default only covers
+  // `undefined`, and an empty string from the CMS would render a blank image.
+  const resolvedLogo = logoUrl?.trim() ? logoUrl : '/logo.jpg';
   const pathname = usePathname();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -106,7 +109,7 @@ export function Navbar({ logoUrl = '/logo.jpg', offsetTop = 0 }: NavbarProps) {
               <span className={styles.heart} aria-hidden="true">♥</span>
               <span className={styles.heart} aria-hidden="true">♥</span>
               <span className={styles.logoMark}>
-                <Image src={logoUrl} alt="" width={40} height={40} priority style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+                <Image src={resolvedLogo} alt="" width={40} height={40} priority style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
               </span>
             </span>
             <span className={styles.logoText}>Hala</span>
@@ -162,7 +165,7 @@ export function Navbar({ logoUrl = '/logo.jpg', offsetTop = 0 }: NavbarProps) {
       >
         <div className={styles.drawerHeader}>
           <span className={styles.drawerLogoMark}>
-            <Image src={logoUrl} alt="Halahello" width={52} height={52} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+            <Image src={resolvedLogo} alt="Halahello" width={52} height={52} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
           </span>
           <span>
             <span className={styles.logoText}>Hala</span>

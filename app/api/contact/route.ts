@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Rate limit by IP
     const ip = getClientIp(req);
-    const rateLimitError = contactLimiter.check(`contact_${ip}`);
+    const rateLimitError = await contactLimiter.check(`contact_${ip}`);
     if (rateLimitError) return rateLimitError;
 
     // 3. Validate body

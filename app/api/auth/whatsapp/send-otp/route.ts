@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Rate limit by IP
     const ip = getClientIp(req);
-    const rateLimitError = otpLimiter.check(`otp_${ip}`);
+    const rateLimitError = await otpLimiter.check(`otp_${ip}`);
     if (rateLimitError) return rateLimitError;
 
     // 3. Validate body

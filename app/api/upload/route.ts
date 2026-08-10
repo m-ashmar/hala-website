@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Rate limit by IP
     const ip = getClientIp(req);
-    const rateLimitError = uploadLimiter.check(`upload_${ip}`);
+    const rateLimitError = await uploadLimiter.check(`upload_${ip}`);
     if (rateLimitError) return rateLimitError;
 
     // 3. Auth
