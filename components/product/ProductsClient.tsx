@@ -6,15 +6,18 @@ import Link from 'next/link';
 import { useCartStore } from '@/lib/stores/cart.store';
 import type { SanityProduct, SanityProductCategory } from '@/sanity/lib/queries';
 import { WishlistButton } from './WishlistButton';
+import { sypToUsd, formatUsd } from '@/lib/currency';
 
 interface ProductsClientProps {
   products: SanityProduct[];
   categories: SanityProductCategory[];
+  /** SYP per 1 USD, from Sanity. When set, the converted card price is shown. */
+  sypPerUsd?: number;
   dbProducts: any[];
   locale: string;
 }
 
-export default function ProductsClient({ products, categories, dbProducts, locale }: ProductsClientProps) {
+export default function ProductsClient({ products, categories, dbProducts, locale, sypPerUsd }: ProductsClientProps) {
   const isAr = locale === 'ar';
 
   const [search, setSearch] = useState('');
@@ -57,6 +60,16 @@ export default function ProductsClient({ products, categories, dbProducts, local
 
     return result;
   }, [products, division, subCategory, search, sort, isAr]);
+
+  /** Converted USD label, or null when no rate is configured. */
+  const usdFor = (syp: number): string | null => {
+    if (!sypPerUsd || sypPerUsd <= 0) return null;
+    try {
+      return formatUsd(sypToUsd(syp, sypPerUsd));
+    } catch {
+      return null;
+    }
+  };
 
   const selectDivision = (id: 'all' | 'hijab' | 'plexi') => {
     setDivision(id);
@@ -278,6 +291,9 @@ export default function ProductsClient({ products, categories, dbProducts, local
                   </span>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid rgba(207,161,141,0.12)" }}>
                     <div>
+                      {/* Converted card price, derived from the admin-set rate.
+                          Shown as approximate because the exact charge is
+                          computed server-side at checkout from the same rate. */}
                       {p.discountPrice ? (
                         <>
                           <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "1rem" }}>{p.discountPrice} SYP</span>
@@ -285,6 +301,11 @@ export default function ProductsClient({ products, categories, dbProducts, local
                         </>
                       ) : (
                         <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: "1rem" }}>{p.price} SYP</span>
+                      )}
+                      {usdFor(p.discountPrice ?? p.price) && (
+                        <div style={{ fontSize: "0.75rem", color: "var(--text-secondary)", marginTop: 2 }}>
+                          ≈ {usdFor(p.discountPrice ?? p.price)}
+                        </div>
                       )}
                     </div>
                   </div>
