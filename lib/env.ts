@@ -41,8 +41,20 @@ const envSchema = z
     NEXTAUTH_URL: z.string().url().optional(),
 
     // ── Payments ─────────────────────────────────────────────────────────
-    STRIPE_SECRET_KEY: prodRequired('STRIPE_SECRET_KEY'),
-    STRIPE_WEBHOOK_SECRET: prodRequired('STRIPE_WEBHOOK_SECRET'),
+    // Optional on purpose. Card payments are one of two rails — ShamCash is
+    // the other — and the shop is fully usable without Stripe: browsing,
+    // the CMS, and ShamCash checkout all work.
+    //
+    // Requiring these would mean a business that has not yet been approved
+    // for Stripe (or cannot be, in some regions) could not deploy at all.
+    // Instead the checkout route detects the missing key and tells the
+    // customer card payment is unavailable, rather than failing mid-charge.
+    //
+    // The pairing IS enforced below: a secret key without a webhook secret is
+    // the genuinely dangerous state, because payments would be taken and
+    // never confirmed.
+    STRIPE_SECRET_KEY: z.string().min(1).optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().min(1).optional(),
 
     // ── CMS ──────────────────────────────────────────────────────────────
     NEXT_PUBLIC_SANITY_PROJECT_ID: prodRequired('NEXT_PUBLIC_SANITY_PROJECT_ID'),
@@ -68,6 +80,18 @@ const envSchema = z
         path: ['AUTH_SECRET'],
         message: 'AUTH_SECRET (or legacy NEXTAUTH_SECRET) is required',
       });
+    }
+    // A secret key without a webhook secret is the dangerous half-configured
+    // state: Stripe would capture payments that we can never confirm, leaving
+    // customers charged with no order. Either configure both, or neither.
+    if (val.STRIPE_SECRET_KEY && !val.STRIPE_WEBHOOK_SECRET) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['STRIPE_WEBHOOK_SECRET'],
+        message:
+          'STRIPE_WEBHOOK_SECRET is required when STRIPE_SECRET_KEY is set — ' +
+          'without it, payments are taken but never confirmed.',
+      })
     }
     // Mock OTP must never be reachable on a live deploy.
     if (val.NODE_ENV === 'production' && val.WHATSAPP_MOCK === 'true') {

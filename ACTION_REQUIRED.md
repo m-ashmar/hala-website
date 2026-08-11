@@ -87,11 +87,22 @@ Because reporting is centralised in `lib/monitoring.ts`, adopting a full SDK
 later (e.g. `@sentry/nextjs`) is a one-file change rather than an edit to every
 call site.
 
-### 2.4 Stripe 🟠 BEFORE LAUNCH
+### 2.4 Stripe ⚪️ OPTIONAL — the site deploys and runs without it
+
+Card payment is one of two rails. **Without any Stripe keys the site deploys
+and works normally** — browsing, the CMS, and ShamCash checkout are unaffected.
+Selecting "pay by card" returns a clear message telling the customer to use the
+other method.
+
+When you are ready, set **both**:
 
 - `STRIPE_SECRET_KEY` — live key
 - `STRIPE_WEBHOOK_SECRET` — from the webhook endpoint you create in the Stripe
   dashboard, pointing at `https://<your-domain>/api/webhooks/stripe`
+
+⚠️ **Setting only the secret key will prevent boot, on purpose.** A secret key
+without a webhook secret means Stripe captures payments that are never
+confirmed — customers charged, no order created. Either both, or neither.
 
 ⚠️ **Confirm Stripe is actually available to you in Syria before relying on
 it.** That is a sanctions/compliance question, not a technical one, and it may
@@ -181,11 +192,15 @@ disabling the protection that depended on it.
 ```
 DATABASE_URL              DIRECT_URL
 AUTH_SECRET               BLOB_READ_WRITE_TOKEN
-STRIPE_SECRET_KEY         STRIPE_WEBHOOK_SECRET
 NEXT_PUBLIC_SANITY_PROJECT_ID   NEXT_PUBLIC_SANITY_DATASET
 SANITY_WEBHOOK_SECRET
 WHATSAPP_API_TOKEN        WHATSAPP_PHONE_ID
 CRON_SECRET
+```
+
+**Optional (site runs without them):**
+```
+STRIPE_SECRET_KEY         STRIPE_WEBHOOK_SECRET   (both, or neither)
 ```
 
 **Recommended:**

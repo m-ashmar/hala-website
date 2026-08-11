@@ -267,10 +267,17 @@ export async function POST(req: NextRequest) {
 
     // 6. Handle Stripe payment method (New Draft Flow)
     if (paymentMethod === 'stripe') {
+      // Card payment is optional — the shop runs on ShamCash alone. An
+      // unconfigured Stripe is a temporarily unavailable payment method, not a
+      // server fault, so it returns 503 with a message aimed at the customer
+      // rather than a 500 with one aimed at a developer.
       if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY.startsWith('sk_test_...')) {
         return NextResponse.json(
-          { error: 'Stripe is not fully configured.' },
-          { status: 500 }
+          {
+            error:
+              'Card payment is not available right now. Please choose the other payment method.',
+          },
+          { status: 503 }
         );
       }
 
