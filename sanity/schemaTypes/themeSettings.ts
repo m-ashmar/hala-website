@@ -1,4 +1,5 @@
 import { defineField, defineType } from 'sanity'
+import { ColorPickerInput } from '../components/ColorPickerInput'
 
 const HEX_PATTERN = /^#([0-9A-Fa-f]{3}|[0-9A-Fa-f]{6})$/
 
@@ -8,7 +9,10 @@ function hexField(name: string, title: string, description: string, group: strin
     title,
     type: 'string',
     group,
-    description: `${description} — hex code, e.g. #CFA18D. Leave empty to use the default.`,
+    // Swatch picker + hex field. Asking a shop owner to know that #CFA18D is a
+    // dusty rose is not a reasonable way to choose a colour.
+    components: { input: ColorPickerInput },
+    description: `${description} Pick a colour, or paste a hex code. Leave empty to use the default.`,
     validation: (Rule) =>
       Rule.custom((value) => {
         if (!value) return true
